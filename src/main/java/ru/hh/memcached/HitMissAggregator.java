@@ -1,5 +1,6 @@
 package ru.hh.memcached;
 
+import com.flozano.statsd.metrics.Metrics;
 import com.timgroup.statsd.StatsDClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -13,12 +14,14 @@ import java.util.concurrent.atomic.LongAdder;
 
 public class HitMissAggregator {
   private static final int MAX_NUM_OF_REGIONS = 300;
+  private static final int DELAY_OF_TRANSMISSION_STATS = 30;
+  private static final int PERIOD_OF_TRANSMISSION_STATS = 1;
   private static final Logger logger = LoggerFactory.getLogger(HitMissAggregator.class);
 
   private final Map<String, LongAdder> regionToHits = new ConcurrentHashMap<>();
   private final Map<String, LongAdder> regionToMisses = new ConcurrentHashMap<>();
 
-  public HitMissAggregator(final StatsDClient statsDClient) {
+  public HitMissAggregator(final Metrics statsDClient) {
     ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> {
       Thread thread = new Thread(r, "memcached_stats_sender");
       thread.setDaemon(true);
@@ -26,10 +29,10 @@ public class HitMissAggregator {
     });
     scheduledExecutorService.scheduleAtFixedRate(() -> {
       regionToHits.forEach((key, value) ->
-          statsDClient.gauge("memcached.hitMiss.hitMiss_is_hit.region_is_" + key, value.longValue()));
+          statsDClient.gauge("memcached.hitMiss.hitMiss_is_hit.region_is_" + key).value(value.longValue()));
       regionToMisses.forEach((key, value) ->
-          statsDClient.gauge("memcached.hitMiss.hitMiss_is_miss.region_is_" + key, value.longValue()));
-    }, 30, 30, TimeUnit.SECONDS);
+          statsDClient.gauge("memcached.hitMiss.hitMiss_is_miss.region_is_" + key).value(value.longValue()));
+    }, DELAY_OF_TRANSMISSION_STATS, PERIOD_OF_TRANSMISSION_STATS, TimeUnit.SECONDS);
   }
 
   public void incrementHit(String region) {

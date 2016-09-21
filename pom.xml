@@ -23,10 +23,9 @@
             <version>2.2</version>
         </dependency>
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>1.7.10</version>
-            <scope>provided</scope>
+            <groupId>com.flozano.statsd-netty</groupId>
+            <artifactId>statsd-netty</artifactId>
+            <version>0.1.4</version>
         </dependency>
 
         <dependency>

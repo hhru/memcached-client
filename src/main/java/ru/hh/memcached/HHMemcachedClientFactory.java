@@ -1,6 +1,6 @@
 package ru.hh.memcached;
 
-import com.timgroup.statsd.StatsDClient;
+import com.flozano.statsd.metrics.Metrics;
 import net.spy.memcached.AddrUtil;
 import net.spy.memcached.ConnectionFactoryBuilder;
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -30,7 +30,7 @@ public class HHMemcachedClientFactory {
     return new HHSpyMemcachedClient(client);
   }
 
-  public static HHMemcachedClient create(Properties properties, StatsDClient client) throws IOException {
+  public static HHMemcachedClient create(Properties properties, Metrics client) throws IOException {
     return new HHMonitoringMemcachedClient(create(properties), client);
   }
 }

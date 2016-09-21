@@ -1,6 +1,7 @@
 package ru.hh.memcached;
 
-import com.timgroup.statsd.StatsDClient;
+import com.flozano.statsd.metrics.Metrics;
+import com.flozano.statsd.metrics.MetricsBuilder;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -10,14 +11,20 @@ import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
 
 class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   private final HHMemcachedClient hhMemcachedClient;
-  private final StatsDClient statsDClient;
   private final HitMissAggregator hitMissAggregator;
+  private final Metrics statsDClient;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient) {
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, Metrics statsDClient) {
     super(hhMemcachedClient);
     this.hhMemcachedClient = hhMemcachedClient;
-    this.statsDClient = statsDClient;
     hitMissAggregator = new HitMissAggregator(statsDClient);
+
+    this.statsDClient = MetricsBuilder.create()
+        .withClient((clientBuilder) ->
+            clientBuilder.withHost("127.0.0.1")
+                .withPort(8125)
+                .withFlushRate(0.01)
+                .withSampleRate(0.1)).build();
   }
 
   @Override
@@ -104,10 +111,8 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   }
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
-    statsDClient.recordExecutionTime(
-        "memcached.time.targetServer_is_" +
-            hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString().replace('.', '-'),
-        timeEnd - timeStart);
+    String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString().replace('.', '-');
+    statsDClient.timer("memcached.time.targetServer_is_" + targetServer).time(timeEnd - timeStart);
   }
 
 }
