@@ -1,10 +1,11 @@
 package ru.hh.memcached;
 
-import com.flozano.statsd.metrics.Metrics;
-import com.flozano.statsd.metrics.MetricsBuilder;
+import com.timgroup.statsd.StatsDClient;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
@@ -12,19 +13,19 @@ import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
 class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   private final HHMemcachedClient hhMemcachedClient;
   private final HitMissAggregator hitMissAggregator;
-  private final Metrics statsDClient;
+  private final TimeAggregator timeAggregator;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, Metrics statsDClient) {
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient) {
     super(hhMemcachedClient);
     this.hhMemcachedClient = hhMemcachedClient;
-    hitMissAggregator = new HitMissAggregator(statsDClient);
 
-    this.statsDClient = MetricsBuilder.create()
-        .withClient((clientBuilder) ->
-            clientBuilder.withHost("127.0.0.1")
-                .withPort(8125)
-                .withFlushRate(0.01)
-                .withSampleRate(0.1)).build();
+    ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> {
+      Thread thread = new Thread(r, "memcached_stats_sender");
+      thread.setDaemon(true);
+      return thread;
+    });
+    hitMissAggregator = new HitMissAggregator(statsDClient, scheduledExecutorService);
+    timeAggregator = new TimeAggregator(statsDClient, scheduledExecutorService);
   }
 
   @Override
@@ -112,7 +113,7 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
     String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString().replace('.', '-');
-    statsDClient.timer("memcached.time.targetServer_is_" + targetServer).time(timeEnd - timeStart);
+    timeAggregator.incrementTime(targetServer, (int) (timeEnd - timeStart));
   }
 
 }
