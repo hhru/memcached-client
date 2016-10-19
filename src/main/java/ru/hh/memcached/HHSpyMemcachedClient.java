@@ -88,7 +88,7 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
 
   @Override
   public InetSocketAddress getServerAddress(String key) {
-    return (InetSocketAddress) spyMemcachedClient.getNodeLocator().getPrimary(key).getSocketAddress();
+    return (InetSocketAddress) spyMemcachedClient.getConnection().getLocator().getPrimary(key).getSocketAddress();
   }
 
   @SuppressWarnings(value = "unchecked")
