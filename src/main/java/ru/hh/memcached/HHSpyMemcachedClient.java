@@ -54,6 +54,9 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   @Override
   public CASPair gets(String region, String key) {
     CASValue<Object> casValue = spyMemcachedClient.gets(getKey(region, key));
+    if (casValue == null) {
+      return null;
+    }
     return new CASPair<>(casValue.getCas(), casValue.getValue());
   }
 
