@@ -24,7 +24,7 @@ public class TimeAggregator {
   private final List<Double> chances;
 
   public TimeAggregator(StatsDClient statsDClient, ScheduledExecutorService scheduledExecutorService) {
-    this(statsDClient, scheduledExecutorService, 1000, Arrays.asList(0.5, 0.95, 0.97, 0.99));
+    this(statsDClient, scheduledExecutorService, 1000, Arrays.asList(0.5, 0.97, 0.99, 1.0));
   }
 
   public TimeAggregator(StatsDClient statsDClient, ScheduledExecutorService scheduledExecutorService, int maxHistogramSize,

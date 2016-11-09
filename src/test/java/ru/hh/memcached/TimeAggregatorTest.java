@@ -8,10 +8,7 @@ import org.junit.Test;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.mockito.Matchers.anyLong;
-import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -49,9 +46,9 @@ public class TimeAggregatorTest {
 
     timeAggregator.sendPercentiles();
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_localhost", 100);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_localhost", 200);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_localhost", 300);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_localhost", 400);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_localhost", 400);
     verifyNoMoreInteractions(statsDClient);
     reset(statsDClient);
 
@@ -70,9 +67,9 @@ public class TimeAggregatorTest {
 
     timeAggregator.sendPercentiles();
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_localhost", 2);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_localhost", 4);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_localhost", 4);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_localhost", 4);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_localhost", 4);
     verifyNoMoreInteractions(statsDClient);
   }
 
@@ -88,9 +85,9 @@ public class TimeAggregatorTest {
     timeAggregator.sendPercentiles();
 
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_localhost", 1);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_localhost", 1);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_localhost", 1);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_localhost", 1);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_localhost", 1);
     verifyNoMoreInteractions(statsDClient);
   }
 
@@ -101,9 +98,9 @@ public class TimeAggregatorTest {
     timeAggregator.sendPercentiles();
 
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_localhost", 1);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_localhost", 2);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_localhost", 2);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_localhost", 2);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_localhost", 2);
     verifyNoMoreInteractions(statsDClient);
   }
 
@@ -114,14 +111,14 @@ public class TimeAggregatorTest {
     timeAggregator.sendPercentiles();
 
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_localhost", 1);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_localhost", 1);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_localhost", 1);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_localhost", 1);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_localhost", 1);
 
     verify(statsDClient).gauge("memcached.time.percentile_is_50.targetServer_is_google", 2);
-    verify(statsDClient).gauge("memcached.time.percentile_is_95.targetServer_is_google", 2);
     verify(statsDClient).gauge("memcached.time.percentile_is_97.targetServer_is_google", 2);
     verify(statsDClient).gauge("memcached.time.percentile_is_99.targetServer_is_google", 2);
+    verify(statsDClient).gauge("memcached.time.percentile_is_100.targetServer_is_google", 2);
 
     verifyNoMoreInteractions(statsDClient);
   }
