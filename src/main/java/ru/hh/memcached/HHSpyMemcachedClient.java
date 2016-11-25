@@ -2,15 +2,24 @@ package ru.hh.memcached;
 
 import net.spy.memcached.CASValue;
 import net.spy.memcached.MemcachedClient;
+import net.spy.memcached.internal.BulkFuture;
 import net.spy.memcached.internal.OperationFuture;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 class HHSpyMemcachedClient implements HHMemcachedClient {
+
+  private static final Logger logger = LoggerFactory.getLogger(HHSpyMemcachedClient.class);
+
   private final MemcachedClient spyMemcachedClient;
 
   HHSpyMemcachedClient(MemcachedClient memcachedClient) {
@@ -22,23 +31,36 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
     return spyMemcachedClient.get(getKey(region, key));
   }
 
+  /** @return Map of key to value.<br/>
+   * The map does not contain keys that are not in memcached or if an error occurs. **/
   @Override
-  public Map<String, Object> getBulk(String region, String[] keys) {
+  public Map<String, Object> getSome(String region, String[] keys) {
     String[] keysWithRegion = new String[keys.length];
     for (int i = 0; i < keys.length; i++) {
       keysWithRegion[i] = getKey(region, keys[i]);
     }
 
-    Map<String, Object> regionKeyToValueMap = spyMemcachedClient.getBulk(keysWithRegion);
-    Map<String, Object> keyToValueMap = new HashMap<>();
+    BulkFuture<Map<String, Object>> bulkFuture = spyMemcachedClient.asyncGetBulk(keysWithRegion);
 
+    Map<String, Object> keyWithRegionToValue;
+    try {
+      keyWithRegionToValue = bulkFuture.getSome(spyMemcachedClient.getOperationTimeout(), TimeUnit.MILLISECONDS);
+    } catch (InterruptedException | ExecutionException e) {
+      if (e instanceof InterruptedException) {
+        Thread.currentThread().interrupt();
+      }
+      logger.warn("Failed to wait cache, region {}, keys {}, {}, returning empty map", region, keys, e.toString());
+      return Collections.emptyMap();
+    }
+
+    Map<String, Object> keyToValue = new HashMap<>(keys.length);
     for (int i = 0; i < keys.length; i++) {
-      Object value = regionKeyToValueMap.get(keysWithRegion[i]);
+      Object value = keyWithRegionToValue.get(keysWithRegion[i]);
       if(value != null) {
-        keyToValueMap.put(keys[i], value);
+        keyToValue.put(keys[i], value);
       }
     }
-    return keyToValueMap;
+    return keyToValue;
   }
 
   @Override

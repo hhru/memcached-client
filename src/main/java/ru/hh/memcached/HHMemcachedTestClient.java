@@ -18,7 +18,7 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
   }
 
   @Override
-  public Map<String, Object> getBulk(String region, String[] keys) {
+  public Map<String, Object> getSome(String region, String[] keys) {
     Map<String, Object> objectMap = new HashMap<>();
     for (String key : keys) {
       Object object = get(region, key);

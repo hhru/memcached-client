@@ -34,9 +34,9 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   }
 
   @Override
-  public Map<String, Object> getBulk(String region, String[] keys) {
+  public Map<String, Object> getSome(String region, String[] keys) {
     final long startTime = System.currentTimeMillis();
-    Map<String, Object> object = hhMemcachedClient.getBulk(region, keys);
+    Map<String, Object> object = hhMemcachedClient.getSome(region, keys);
     final long timeEnd = System.currentTimeMillis();
 
     for (String key : keys) {

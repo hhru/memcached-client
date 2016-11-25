@@ -17,8 +17,8 @@ abstract class HHMemcachedDelegateClient implements HHMemcachedClient {
   }
 
   @Override
-  public Map<String, Object> getBulk(String region, String[] keys) {
-    return delegate.getBulk(region, keys);
+  public Map<String, Object> getSome(String region, String[] keys) {
+    return delegate.getSome(region, keys);
   }
 
   @Override

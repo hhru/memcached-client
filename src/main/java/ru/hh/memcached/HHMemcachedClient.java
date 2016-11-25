@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface HHMemcachedClient {
   Object get(String region, String key);
-  Map<String, Object> getBulk(String region, String[] keys);
+  Map<String, Object> getSome(String region, String[] keys);
   CompletableFuture<Boolean> set(String region, String key, int exp, Object o);
   CompletableFuture<Boolean> delete(String region, String key);
   CASPair gets(String region, String key);
