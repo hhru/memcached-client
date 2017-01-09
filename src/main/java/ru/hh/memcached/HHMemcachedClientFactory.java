@@ -1,6 +1,7 @@
 package ru.hh.memcached;
 
 import com.timgroup.statsd.StatsDClient;
+import java.util.concurrent.ScheduledExecutorService;
 import net.spy.memcached.AddrUtil;
 import net.spy.memcached.ConnectionFactoryBuilder;
 import net.spy.memcached.DefaultHashAlgorithm;
@@ -30,7 +31,7 @@ public class HHMemcachedClientFactory {
     return new HHSpyMemcachedClient(client);
   }
 
-  public static HHMemcachedClient create(Properties properties, StatsDClient client) throws IOException {
-    return new HHMonitoringMemcachedClient(create(properties), client);
+  public static HHMemcachedClient create(Properties properties, StatsDClient client, ScheduledExecutorService scheduledExecutorService) throws IOException {
+    return new HHMonitoringMemcachedClient(create(properties), client, scheduledExecutorService);
   }
 }

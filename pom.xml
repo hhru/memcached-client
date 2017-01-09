@@ -41,6 +41,12 @@
             <version>1.9.5</version>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>ru.hh.metrics</groupId>
+            <artifactId>hh-metrics</artifactId>
+            <version>0.0.1</version>
+        </dependency>
     </dependencies>
 
     <build>

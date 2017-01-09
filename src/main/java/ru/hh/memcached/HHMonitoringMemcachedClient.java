@@ -1,31 +1,36 @@
 package ru.hh.memcached;
 
 import com.timgroup.statsd.StatsDClient;
-
+import static java.util.Arrays.asList;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
-
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
+import ru.hh.metrics.CounterAggregator;
+import ru.hh.metrics.PercentileAggregator;
+import ru.hh.metrics.StatsDSender;
+import ru.hh.metrics.Tag;
 
 class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
-  private final HHMemcachedClient hhMemcachedClient;
-  private final HitMissAggregator hitMissAggregator;
-  private final TimeAggregator timeAggregator;
+  public static final Tag HIT_TAG = new Tag("hitMiss", "hit");
+  public static final Tag MISS_TAG = new Tag("hitMiss", "miss");
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient) {
+  private final HHMemcachedClient hhMemcachedClient;
+  private final CounterAggregator counterAggregator;
+  private final PercentileAggregator percentileAggregator;
+
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient,
+                              ScheduledExecutorService scheduledExecutorService) {
     super(hhMemcachedClient);
     this.hhMemcachedClient = hhMemcachedClient;
 
-    ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(r -> {
-      Thread thread = new Thread(r, "memcached_stats_sender");
-      thread.setDaemon(true);
-      return thread;
-    });
-    hitMissAggregator = new HitMissAggregator(statsDClient, scheduledExecutorService);
-    timeAggregator = new TimeAggregator(statsDClient, scheduledExecutorService);
+    counterAggregator = new CounterAggregator(500);
+    percentileAggregator = new PercentileAggregator(1000, asList(0.5, 0.97, 0.99, 1.0), 20);
+
+    StatsDSender statsDSender = new StatsDSender(statsDClient, scheduledExecutorService);
+    statsDSender.sendCounterPeriodically("memcached.hitMiss", counterAggregator);
+    statsDSender.sendPercentilesPeriodically("memcached.time", percentileAggregator);
   }
 
   @Override
@@ -105,15 +110,15 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
 
   private void sendHitMissStats(Object object, String region) {
     if (object == null) {
-      hitMissAggregator.incrementMiss(region);
+      counterAggregator.increaseMetric(1, HIT_TAG, new Tag("region", region));
     } else {
-      hitMissAggregator.incrementHit(region);
+      counterAggregator.increaseMetric(1, MISS_TAG, new Tag("region", region));
     }
   }
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
-    String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString().replace('.', '-');
-    timeAggregator.incrementTime(targetServer, (int) (timeEnd - timeStart));
+    String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString();
+    percentileAggregator.incrementMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
   }
 
 }
