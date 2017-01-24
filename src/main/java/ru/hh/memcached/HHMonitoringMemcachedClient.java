@@ -110,15 +110,15 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
 
   private void sendHitMissStats(Object object, String region) {
     if (object == null) {
-      counterAggregator.increaseMetric(1, HIT_TAG, new Tag("region", region));
-    } else {
       counterAggregator.increaseMetric(1, MISS_TAG, new Tag("region", region));
+    } else {
+      counterAggregator.increaseMetric(1, HIT_TAG, new Tag("region", region));
     }
   }
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
     String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString();
-    percentileAggregator.incrementMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
+    percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
   }
 
 }
