@@ -94,7 +94,7 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
   }
 
   @Override
-  public InetSocketAddress getServerAddress(String key) {
+  public InetSocketAddress getPrimaryNodeAddress(String key) {
     return new InetSocketAddress("127.0.0.1", 11211);
   }
 

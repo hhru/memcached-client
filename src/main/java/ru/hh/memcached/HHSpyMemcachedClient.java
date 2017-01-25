@@ -16,6 +16,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+/** Wrapper around spy MemcachedClient.<br/>
+ *  Catches all exceptions that come from spy MemcachedClient,<br/>
+ *  logs them as WARN without stacktrace,<br/>
+ *  returns null / false if needed,<br/>
+ *  so upper code does not have to deal with exceptions and can think that ordinary miss happened. */
 class HHSpyMemcachedClient implements HHMemcachedClient {
 
   private static final Logger logger = LoggerFactory.getLogger(HHSpyMemcachedClient.class);
@@ -28,7 +33,14 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
 
   @Override
   public Object get(String region, String key) {
-    return spyMemcachedClient.get(getKey(region, key));
+    String keyWithRegion = getKey(region, key);
+    try {
+      return spyMemcachedClient.get(keyWithRegion);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get key, region {}, primary node {}, {}, returning null",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return null;
+    }
   }
 
   /** @return Map of key to value.<br/>
@@ -40,16 +52,22 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
       keysWithRegion[i] = getKey(region, keys[i]);
     }
 
-    BulkFuture<Map<String, Object>> bulkFuture = spyMemcachedClient.asyncGetBulk(keysWithRegion);
+    BulkFuture<Map<String, Object>> bulkFuture;
+    try {
+      bulkFuture = spyMemcachedClient.asyncGetBulk(keysWithRegion);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get keys future, region {}, {}, returning empty map", region, e.toString());
+      return Collections.emptyMap();
+    }
 
     Map<String, Object> keyWithRegionToValue;
     try {
       keyWithRegionToValue = bulkFuture.getSome(spyMemcachedClient.getOperationTimeout(), TimeUnit.MILLISECONDS);
-    } catch (InterruptedException | ExecutionException e) {
+    } catch (InterruptedException | ExecutionException | RuntimeException e) {
       if (e instanceof InterruptedException) {
         Thread.currentThread().interrupt();
       }
-      logger.warn("Failed to wait cache, region {}, keys {}, {}, returning empty map", region, keys, e.toString());
+      logger.warn("failed to wait keys future, region {}, {}, returning empty map", region, e.toString());
       return Collections.emptyMap();
     }
 
@@ -65,17 +83,49 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
 
   @Override
   public CompletableFuture<Boolean> set(String region, String key, int exp, Object o) {
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.set(getKey(region, key), exp, o));
+    String keyWithRegion = getKey(region, key);
+
+    OperationFuture<Boolean> setFuture;
+    try {
+      setFuture = spyMemcachedClient.set(keyWithRegion, exp, o);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get set future, region {}, primary node {}, {}",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return CompletableFuture.completedFuture(false);
+    }
+
+    return getCompletableFutureFromOperationFuture(setFuture, region, false);
   }
 
   @Override
   public CompletableFuture<Boolean> delete(String region, String key) {
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.delete(getKey(region, key)));
+    String keyWithRegion = getKey(region, key);
+
+    OperationFuture<Boolean> deleteFuture;
+    try {
+      deleteFuture = spyMemcachedClient.delete(keyWithRegion);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get delete future, region {}, primary node {}, {}",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return CompletableFuture.completedFuture(false);
+    }
+
+    return getCompletableFutureFromOperationFuture(deleteFuture, region, false);
   }
 
   @Override
   public CASPair gets(String region, String key) {
-    CASValue<Object> casValue = spyMemcachedClient.gets(getKey(region, key));
+    String keyWithRegion = getKey(region, key);
+
+    CASValue<Object> casValue;
+    try {
+      casValue = spyMemcachedClient.gets(keyWithRegion);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get cas value, region {}, primary node {}, {}, returning null",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return null;
+    }
+
     if (casValue == null) {
       return null;
     }
@@ -84,47 +134,72 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
 
   @Override
   public CompletableFuture<Boolean> add(String region, String key, int exp, Object o) {
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.add(getKey(region, key), exp, o));
+    String keyWithRegion = getKey(region, key);
+
+    OperationFuture<Boolean> addFuture;
+    try {
+      addFuture = spyMemcachedClient.add(keyWithRegion, exp, o);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get add future, region {}, primary node {}, {}",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return CompletableFuture.completedFuture(false);
+    }
+
+    return getCompletableFutureFromOperationFuture(addFuture, region, false);
   }
 
   @Override
   public CompletableFuture<CASResponse> asyncCas(String region, String key, long casId, int exp, Object o) {
-    final OperationFuture<net.spy.memcached.CASResponse> operationFuture = spyMemcachedClient.asyncCAS(getKey(region, key), casId, exp, o);
-    CompletableFuture<CASResponse> completableFuture = new CompletableFuture<>();
-    operationFuture.addListener(future -> {
-      try {
-        completableFuture.complete(getCASResponseFromSpyMemcachedCASResponse((net.spy.memcached.CASResponse) future.get()));
-      } catch (Throwable throwable) {
-        completableFuture.completeExceptionally(throwable);
-      }
-    });
-    completableFuture.whenComplete((completableFutureValue, exception) -> {
-      if (exception instanceof CancellationException) {
-        operationFuture.cancel();
-      }
-    });
-    return completableFuture;
+    String keyWithRegion = getKey(region, key);
+
+    OperationFuture<net.spy.memcached.CASResponse> casResponseFuture;
+    try {
+      casResponseFuture = spyMemcachedClient.asyncCAS(keyWithRegion, casId, exp, o);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get async cas future, region {}, primary node {}, {}",
+          region, getPrimaryNodeString(keyWithRegion), e.toString());
+      return CompletableFuture.completedFuture(CASResponse.ERROR);
+    }
+
+    return getCompletableFutureFromOperationFuture(casResponseFuture, region, null)
+        .thenApply(HHSpyMemcachedClient::getCASResponseFromSpyCASResponse);
   }
 
  @Override
   public long increment(String region, String key, int by, int def) {
-    return spyMemcachedClient.incr(getKey(region, key), by, def);
+   String keyWithRegion = getKey(region, key);
+
+   try {
+     return spyMemcachedClient.incr(keyWithRegion, by, def);
+   } catch (RuntimeException e) {
+     logger.warn("failed to increment key value, region {}, primary node {}, {}, returning -1",
+         region, getPrimaryNodeString(keyWithRegion), e.toString());
+     return -1;
+   }
   }
 
   @Override
-  public InetSocketAddress getServerAddress(String key) {
+  public InetSocketAddress getPrimaryNodeAddress(String key) {
     return (InetSocketAddress) spyMemcachedClient.getConnection().getLocator().getPrimary(key).getSocketAddress();
   }
 
+  private String getPrimaryNodeString(String key) {
+    return getPrimaryNodeAddress(key).getHostString();
+  }
+
   @SuppressWarnings(value = "unchecked")
-  static <T> CompletableFuture<T> getCompletableFutureFromOperationFuture(final OperationFuture<T> operationFuture) {
+  <T> CompletableFuture<T> getCompletableFutureFromOperationFuture(OperationFuture<T> operationFuture, String region, T fallback) {
     CompletableFuture<T> completableFuture = new CompletableFuture<>();
     operationFuture.addListener(future -> {
+      T result;
       try {
-        completableFuture.complete((T) future.get());
+        result = (T) future.get();
       } catch (Throwable throwable) {
-        completableFuture.completeExceptionally(throwable);
+        logger.warn("got exception while converting spy future to completable future, region {}, primary node {}, {}, returning {}",
+            region, getPrimaryNodeString(future.getKey()), throwable.toString(), fallback);
+        result = fallback;
       }
+      completableFuture.complete(result);
     });
     completableFuture.whenComplete((completableFutureValue, exception) -> {
       if (exception instanceof CancellationException) {
@@ -138,7 +213,7 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
     return region + key;
   }
 
-  private static CASResponse getCASResponseFromSpyMemcachedCASResponse(net.spy.memcached.CASResponse casResponse) {
+  private static CASResponse getCASResponseFromSpyCASResponse(net.spy.memcached.CASResponse casResponse) {
     switch (casResponse) {
       case OK:
         return CASResponse.OK;

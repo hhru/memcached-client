@@ -117,7 +117,7 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   }
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
-    String targetServer = hhMemcachedClient.getServerAddress(getKey(region, key)).getHostString();
+    String targetServer = hhMemcachedClient.getPrimaryNodeAddress(getKey(region, key)).getHostString();
     percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
   }
 

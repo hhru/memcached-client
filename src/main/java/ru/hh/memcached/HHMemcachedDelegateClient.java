@@ -52,7 +52,7 @@ abstract class HHMemcachedDelegateClient implements HHMemcachedClient {
   }
 
   @Override
-  public InetSocketAddress getServerAddress(String key) {
-    return delegate.getServerAddress(key);
+  public InetSocketAddress getPrimaryNodeAddress(String key) {
+    return delegate.getPrimaryNodeAddress(key);
   }
 }
