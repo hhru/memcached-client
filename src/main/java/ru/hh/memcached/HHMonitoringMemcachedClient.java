@@ -2,6 +2,8 @@ package ru.hh.memcached;
 
 import com.timgroup.statsd.StatsDClient;
 import static java.util.Arrays.asList;
+
+import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
@@ -12,7 +14,7 @@ import ru.hh.metrics.PercentileAggregator;
 import ru.hh.metrics.StatsDSender;
 import ru.hh.metrics.Tag;
 
-class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
+class HHMonitoringMemcachedClient implements HHMemcachedClient {
   public static final Tag HIT_TAG = new Tag("hitMiss", "hit");
   public static final Tag MISS_TAG = new Tag("hitMiss", "miss");
 
@@ -22,7 +24,7 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
 
   HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient,
                               ScheduledExecutorService scheduledExecutorService) {
-    super(hhMemcachedClient);
+
     this.hhMemcachedClient = hhMemcachedClient;
 
     counterAggregator = new CounterAggregator(500);
@@ -119,6 +121,11 @@ class HHMonitoringMemcachedClient extends HHMemcachedDelegateClient {
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
     String targetServer = hhMemcachedClient.getPrimaryNodeAddress(getKey(region, key)).getHostString();
     percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
+  }
+
+  @Override
+  public InetSocketAddress getPrimaryNodeAddress(String key) {
+    return hhMemcachedClient.getPrimaryNodeAddress(key);
   }
 
 }
