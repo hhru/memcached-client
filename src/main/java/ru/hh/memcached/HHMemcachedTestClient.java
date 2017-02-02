@@ -37,23 +37,23 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
 
   @Override
   public CompletableFuture<Boolean> delete(String region, String key) {
-    store.remove(getKey(region, key));
-    return CompletableFuture.completedFuture(true);
+    Object removed = store.remove(getKey(region, key));
+    return CompletableFuture.completedFuture(removed != null);
   }
 
   @Override
   public CASPair gets(String region, String key) {
     Object object = get(region, key);
+    if (object == null) {
+      return null;
+    }
     return new CASPair<>(object.hashCode(), object);
   }
 
   @Override
   public CompletableFuture<Boolean> add(String region, String key, int exp, Object newValue) {
-    if (null != store.putIfAbsent(getKey(region, key), newValue)) {
-      return CompletableFuture.completedFuture(false);
-    } else {
-      return CompletableFuture.completedFuture(true);
-    }
+    Object previous = store.putIfAbsent(getKey(region, key), newValue);
+    return CompletableFuture.completedFuture(previous == null);
   }
 
   @Override
@@ -74,23 +74,14 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
 
   @Override
   public long increment(String region, String key, int by, int def) {
-    Object oldValue = get(region, key);
-    int newValue = def;
-
-    if (null != oldValue) {
-      try {
-        newValue = Integer.parseInt(oldValue.toString());
-      } catch (NumberFormatException e) {
-        return -1;
+    Object newVal = store.merge(getKey(region, key), def, (oldVal, defVal) -> {
+      if (oldVal instanceof Integer) {
+        return (int) oldVal + by;
+      } else {
+        return null;
       }
-      newValue += by;
-    }
-
-    if (store.replace(getKey(region, key), oldValue, newValue)) {
-      return newValue;
-    } else {
-      return -1;
-    }
+    });
+    return newVal != null ? (Integer) newVal : -1;
   }
 
   @Override
