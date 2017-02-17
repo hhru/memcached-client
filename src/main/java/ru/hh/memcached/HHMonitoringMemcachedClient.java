@@ -48,7 +48,7 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
 
     for (String key : keys) {
       sendExecutionTimeStats(region, key, startTime, timeEnd);
-      sendHitMissStats(object.get(key), region);
+      sendHitMissStats(object.get(key), region, key);
     }
 
     return object;
@@ -96,7 +96,7 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     T object = method.get();
 
     sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
-    sendHitMissStats(object, region);
+    sendHitMissStats(object, region, key);
 
     return object;
   }
@@ -110,17 +110,22 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     return completableFuture;
   }
 
-  private void sendHitMissStats(Object object, String region) {
+  private void sendHitMissStats(Object object, String region, String key) {
+    Tag regionTag = new Tag("region", region);
+    Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
     if (object == null) {
-      counterAggregator.increaseMetric(1, MISS_TAG, new Tag("region", region));
+      counterAggregator.increaseMetric(1, MISS_TAG, regionTag, primaryNodeTag);
     } else {
-      counterAggregator.increaseMetric(1, HIT_TAG, new Tag("region", region));
+      counterAggregator.increaseMetric(1, HIT_TAG, regionTag, primaryNodeTag);
     }
   }
 
+  private String getPrimaryNode(String region, String key) {
+    return hhMemcachedClient.getPrimaryNodeAddress(getKey(region, key)).getHostString();
+  }
+
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
-    String targetServer = hhMemcachedClient.getPrimaryNodeAddress(getKey(region, key)).getHostString();
-    percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("targetServer", targetServer));
+    percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("primaryNode", getPrimaryNode(region, key)));
   }
 
   @Override
