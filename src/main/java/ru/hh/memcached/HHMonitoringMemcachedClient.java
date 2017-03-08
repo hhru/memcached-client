@@ -1,7 +1,6 @@
 package ru.hh.memcached;
 
 import com.timgroup.statsd.StatsDClient;
-import static java.util.Arrays.asList;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -9,8 +8,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
-import ru.hh.metrics.CounterAggregator;
-import ru.hh.metrics.PercentileAggregator;
+import ru.hh.metrics.Counters;
+import ru.hh.metrics.Histograms;
 import ru.hh.metrics.StatsDSender;
 import ru.hh.metrics.Tag;
 
@@ -19,20 +18,20 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   public static final Tag MISS_TAG = new Tag("hitMiss", "miss");
 
   private final HHMemcachedClient hhMemcachedClient;
-  private final CounterAggregator counterAggregator;
-  private final PercentileAggregator percentileAggregator;
+  private final Counters counters;
+  private final Histograms histograms;
 
   HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient,
                               ScheduledExecutorService scheduledExecutorService) {
 
     this.hhMemcachedClient = hhMemcachedClient;
 
-    counterAggregator = new CounterAggregator(500);
-    percentileAggregator = new PercentileAggregator(1000, asList(0.5, 0.97, 0.99, 1.0), 20);
+    counters = new Counters(500);
+    histograms = new Histograms(1000, 20);
 
     StatsDSender statsDSender = new StatsDSender(statsDClient, scheduledExecutorService);
-    statsDSender.sendCounterPeriodically("memcached.hitMiss", counterAggregator);
-    statsDSender.sendPercentilesPeriodically("memcached.time", percentileAggregator);
+    statsDSender.sendCountersPeriodically("memcached.hitMiss", counters);
+    statsDSender.sendPercentilesPeriodically("memcached.time", histograms, 50, 97, 99, 100);
   }
 
   @Override
@@ -114,9 +113,9 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     Tag regionTag = new Tag("region", region);
     Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
     if (object == null) {
-      counterAggregator.increaseMetric(1, MISS_TAG, regionTag, primaryNodeTag);
+      counters.add(1, MISS_TAG, regionTag, primaryNodeTag);
     } else {
-      counterAggregator.increaseMetric(1, HIT_TAG, regionTag, primaryNodeTag);
+      counters.add(1, HIT_TAG, regionTag, primaryNodeTag);
     }
   }
 
@@ -125,7 +124,7 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   }
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
-    percentileAggregator.increaseMetric((int) (timeEnd - timeStart), new Tag("primaryNode", getPrimaryNode(region, key)));
+    histograms.save((int) (timeEnd - timeStart), new Tag("primaryNode", getPrimaryNode(region, key)));
   }
 
   @Override
