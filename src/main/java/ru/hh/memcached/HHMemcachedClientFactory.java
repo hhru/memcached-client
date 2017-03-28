@@ -30,6 +30,7 @@ public class HHMemcachedClientFactory {
         .setHashAlg(DefaultHashAlgorithm.KETAMA_HASH)
         .setMaxReconnectDelay(Integer.parseInt(properties.getProperty("memcached.maxReconnectDelay")))
         .setTimeoutExceptionThreshold(Integer.parseInt(properties.getProperty("memcached.timeoutExceptionThreshold")))
+        .setDaemon(true)
         .setUseNagleAlgorithm(false);
     ConnectionFactory connectionFactory = builder.build();
 
