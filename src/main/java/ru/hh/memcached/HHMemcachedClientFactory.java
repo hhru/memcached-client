@@ -5,6 +5,7 @@ import java.util.List;
 import net.spy.memcached.AddrUtil;
 import net.spy.memcached.ConnectionFactory;
 import net.spy.memcached.ConnectionFactoryBuilder;
+import net.spy.memcached.ConnectionFactoryBuilder.Protocol;
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.FailureMode;
 import net.spy.memcached.MemcachedClient;
@@ -45,6 +46,7 @@ public class HHMemcachedClientFactory {
         .setWriteOpQueueFactory(writeQueueFactory)
         .setReadOpQueueFactory(readQueueFactory)
         .setFailureMode(FailureMode.valueOf(properties.getProperty("failureMode", FailureMode.Redistribute.name())))
+        .setProtocol(Protocol.valueOf(properties.getProperty("memcached.protocol", Protocol.TEXT.name())))
         .setLocatorType(ConnectionFactoryBuilder.Locator.CONSISTENT)
         .setHashAlg(DefaultHashAlgorithm.KETAMA_HASH)
         .setMaxReconnectDelay(parseInt(properties.getProperty("maxReconnectDelay")))
