@@ -1,11 +1,9 @@
 package ru.hh.memcached;
 
-import com.timgroup.statsd.StatsDClient;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Supplier;
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
 import ru.hh.metrics.Counters;
@@ -21,15 +19,13 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private final Counters counters;
   private final Histograms histograms;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDClient statsDClient,
-                              ScheduledExecutorService scheduledExecutorService) {
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDSender statsDSender) {
 
     this.hhMemcachedClient = hhMemcachedClient;
 
     counters = new Counters(500);
     histograms = new Histograms(1000, 20);
 
-    StatsDSender statsDSender = new StatsDSender(statsDClient, scheduledExecutorService);
     statsDSender.sendCountersPeriodically("memcached.hitMiss", counters);
     statsDSender.sendPercentilesPeriodically("memcached.time", histograms, 50, 97, 99, 100);
   }
