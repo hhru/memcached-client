@@ -68,7 +68,9 @@ public class HHMemcachedClientFactory {
   private static int getNumOfInstances(Properties properties) {
     String numOfInstancesStr = properties.getProperty("memcached.numOfInstances");
     if (numOfInstancesStr == null) {
-      return Runtime.getRuntime().availableProcessors();
+      // divide availableProcessors / 2 because each memcached client instance is at least 2 threads: MemcachedConnection and transcoder,
+      // they create roughly the same CPU load
+      return Math.max(1, Runtime.getRuntime().availableProcessors() / 2);
     } else {
       return parseInt(numOfInstancesStr);
     }
