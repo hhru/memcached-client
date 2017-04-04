@@ -21,13 +21,13 @@ import static java.lang.Integer.parseInt;
 public class HHMemcachedClientFactory {
 
   public static HHMemcachedClient create(Properties properties, StatsDSender statsDSender) throws IOException {
-    int opQueueCapacity = parseInt(properties.getProperty("memcached.opQueueCapacity"));
-    int writeQueueCapacity = parseInt(properties.getProperty("memcached.writeOpQueueCapacity"));
-    int readQueueCapacity = parseInt(properties.getProperty("memcached.readOpQueueCapacity"));
+    int opQueueCapacity = parseInt(properties.getProperty("opQueueCapacity"));
+    int writeQueueCapacity = parseInt(properties.getProperty("writeOpQueueCapacity"));
+    int readQueueCapacity = parseInt(properties.getProperty("readOpQueueCapacity"));
     OperationQueueFactory opQueueFactory;
     OperationQueueFactory writeQueueFactory;
     OperationQueueFactory readQueueFactory;
-    if (parseBoolean(properties.getProperty("memcached.sendQueuesStats"))) {
+    if (parseBoolean(properties.getProperty("sendQueuesStats"))) {
       opQueueFactory = new MonitoringQueueFactory(opQueueCapacity, "operation", statsDSender);
       readQueueFactory = new MonitoringQueueFactory(readQueueCapacity, "read", statsDSender);
       writeQueueFactory = new MonitoringQueueFactory(writeQueueCapacity, "write", statsDSender);
@@ -39,26 +39,26 @@ public class HHMemcachedClientFactory {
 
     final ConnectionFactoryBuilder builder = new ConnectionFactoryBuilder()
         .setProtocol(ConnectionFactoryBuilder.Protocol.TEXT)
-        .setOpTimeout(parseInt(properties.getProperty("memcached.opTimeoutMs")))
-        .setOpQueueMaxBlockTime(parseInt(properties.getProperty("memcached.opQueueMaxBlockTime")))
+        .setOpTimeout(parseInt(properties.getProperty("opTimeoutMs")))
+        .setOpQueueMaxBlockTime(parseInt(properties.getProperty("opQueueMaxBlockTime")))
         .setOpQueueFactory(opQueueFactory)
         .setWriteOpQueueFactory(writeQueueFactory)
         .setReadOpQueueFactory(readQueueFactory)
-        .setFailureMode(FailureMode.valueOf(properties.getProperty("memcached.failureMode", FailureMode.Redistribute.name())))
+        .setFailureMode(FailureMode.valueOf(properties.getProperty("failureMode", FailureMode.Redistribute.name())))
         .setLocatorType(ConnectionFactoryBuilder.Locator.CONSISTENT)
         .setHashAlg(DefaultHashAlgorithm.KETAMA_HASH)
-        .setMaxReconnectDelay(parseInt(properties.getProperty("memcached.maxReconnectDelay")))
-        .setTimeoutExceptionThreshold(parseInt(properties.getProperty("memcached.timeoutExceptionThreshold")))
+        .setMaxReconnectDelay(parseInt(properties.getProperty("maxReconnectDelay")))
+        .setTimeoutExceptionThreshold(parseInt(properties.getProperty("timeoutExceptionThreshold")))
         .setDaemon(true)
         .setUseNagleAlgorithm(false);
     ConnectionFactory connectionFactory = builder.build();
 
-    List<InetSocketAddress> nodes = AddrUtil.getAddresses(properties.getProperty("memcached.servers"));
+    List<InetSocketAddress> nodes = AddrUtil.getAddresses(properties.getProperty("servers"));
 
     int numOfInstances = getNumOfInstances(properties);
 
     HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
-    if (parseBoolean(properties.getProperty("memcached.sendStats"))) {
+    if (parseBoolean(properties.getProperty("sendStats"))) {
       return new HHMonitoringMemcachedClient(memcachedClient, statsDSender);
     } else {
       return memcachedClient;
@@ -66,7 +66,7 @@ public class HHMemcachedClientFactory {
   }
 
   private static int getNumOfInstances(Properties properties) {
-    String numOfInstancesStr = properties.getProperty("memcached.numOfInstances");
+    String numOfInstancesStr = properties.getProperty("numOfInstances");
     if (numOfInstancesStr == null) {
       // divide availableProcessors / 2 because each memcached client instance is at least 2 threads: MemcachedConnection and transcoder,
       // they create roughly the same CPU load
