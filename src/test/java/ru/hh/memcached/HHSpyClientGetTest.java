@@ -27,13 +27,4 @@ public class HHSpyClientGetTest {
 
     assertNull(hhSpyClient.get("region", "key"));
   }
-
-  @Test
-  public void exception() {
-    String keyWithRegion = HHSpyMemcachedClient.getKey("region", "key");
-    when(spyClientMock.get(keyWithRegion)).thenThrow(RuntimeException.class);
-
-    assertNull(hhSpyClient.get("region", "key"));
-  }
-
 }

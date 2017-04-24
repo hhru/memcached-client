@@ -11,7 +11,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
@@ -57,17 +56,4 @@ public class HHSpyClientAddTest {
 
     assertEquals(false, addFuture.get());
   }
-
-  @Test
-  public void exception() throws ExecutionException, InterruptedException {
-    String keyWithRegion = HHSpyMemcachedClient.getKey("region", "key");
-    int exp = 3;
-    Object value = new Object();
-    when(spyClientMock.add(keyWithRegion, exp, value)).thenThrow(RuntimeException.class);
-
-    CompletableFuture<Boolean> addFuture = hhSpyClient.add("region", "key", exp, value);
-
-    assertFalse(addFuture.get());
-  }
-
 }

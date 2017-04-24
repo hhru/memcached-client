@@ -81,6 +81,35 @@
                 </executions>
             </plugin>
 
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>2.17</version>
+                <dependencies>
+                    <dependency>
+                        <groupId>com.puppycrawl.tools</groupId>
+                        <artifactId>checkstyle</artifactId>
+                        <version>7.7</version>
+                    </dependency>
+                </dependencies>
+                <executions>
+                    <execution>
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <configuration>
+                            <excludes>main/java/ru/hh/xml/daxtra/*,main/java/com/headhunter/webapp/headhunter/springmvc/commands/applicantservice/assist/EMoneyAssistCommitPaymentCommandOld.java,main/java/com/headhunter/webapp/headhunter/springmvc/commands/applicantservice/assist/EMoneyAssistCommitPaymentCommandNew.java,main/java/com/headhunter/webapp/headhunter/springmvc/commands/applicantservice/assist/EMoneyAssistCommitPaymentCommand.java,main/java/ru/hh/billing/payment/assist/AssistPaymentResultRequest.java,main/java/com/headhunter/core/model/protobuf/PbEmployerPage.java</excludes> <!-- HH-49195 -->
+                            <sourceDirectory>${basedir}/src</sourceDirectory>
+                            <configLocation>checkstyle.xml</configLocation>
+                            <encoding>UTF-8</encoding>
+                            <includeTestSourceDirectory>true</includeTestSourceDirectory>
+                        </configuration>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 

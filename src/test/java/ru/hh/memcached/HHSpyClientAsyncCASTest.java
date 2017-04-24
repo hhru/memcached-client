@@ -58,18 +58,4 @@ public class HHSpyClientAsyncCASTest {
 
     assertEquals(CASResponse.ERROR, casFuture.get());
   }
-
-  @Test
-  public void exception() throws ExecutionException, InterruptedException {
-    String keyWithRegion = HHSpyMemcachedClient.getKey("region", "key");
-    long casID = 7L;
-    int exp = 3;
-    Object value = new Object();
-    when(spyClientMock.asyncCAS(keyWithRegion, casID, exp, value)).thenThrow(RuntimeException.class);
-
-    CompletableFuture<CASResponse> casFuture = hhSpyClient.asyncCas("region", "key", casID, exp, value);
-
-    assertEquals(CASResponse.ERROR, casFuture.get());
-  }
-
 }

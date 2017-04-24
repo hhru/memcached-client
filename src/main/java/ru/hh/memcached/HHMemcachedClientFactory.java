@@ -60,10 +60,10 @@ public class HHMemcachedClientFactory {
 
     HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
     if (parseBoolean(properties.getProperty("sendStats"))) {
-      return new HHMonitoringMemcachedClient(memcachedClient, statsDSender, serviceName);
-    } else {
-      return memcachedClient;
+      memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, statsDSender, serviceName);
     }
+
+    return new HHExceptionSwallowerMemcachedClient(memcachedClient);
   }
 
   private static int getNumOfInstances(Properties properties) {

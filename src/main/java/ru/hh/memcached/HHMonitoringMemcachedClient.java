@@ -5,6 +5,7 @@ import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
+import net.spy.memcached.OperationTimeoutException;
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
 import ru.hh.metrics.Counters;
 import ru.hh.metrics.Histograms;
@@ -12,83 +13,99 @@ import ru.hh.metrics.StatsDSender;
 import ru.hh.metrics.Tag;
 
 class HHMonitoringMemcachedClient implements HHMemcachedClient {
-  public static final Tag HIT_TAG = new Tag("hitMiss", "hit");
-  public static final Tag MISS_TAG = new Tag("hitMiss", "miss");
+  private static final Tag HIT_TAG = new Tag("hitMiss", "hit");
+  private static final Tag MISS_TAG = new Tag("hitMiss", "miss");
+
+  private static final Tag OPERATION_TIMEOUT_ERROR_TAG = new Tag("error_type", "operation_timeout");
+  private static final Tag OTHER_ERROR_TAG = new Tag("error_type", "other");
+
+  private static final Tag GET_COMMAND_TAG = new Tag("command", "get");
+  private static final Tag GET_SOME_COMMAND_TAG = new Tag("command", "getSome");
+  private static final Tag SET_COMMAND_TAG = new Tag("command", "set");
+  private static final Tag DELETE_COMMAND_TAG = new Tag("command", "delete");
+  private static final Tag GETS_COMMAND_TAG = new Tag("command", "gets");
+  private static final Tag ADD_COMMAND_TAG = new Tag("command", "add");
+  private static final Tag ASYNC_CAS_COMMAND_TAG = new Tag("command", "asyncCas");
+  private static final Tag INCREMENT_COMMAND_TAG = new Tag("command", "increment");
 
   private final HHMemcachedClient hhMemcachedClient;
-  private final Counters counters;
+  private final Counters hitMissCounters;
   private final Histograms histograms;
+  private final Counters errorCounters;
 
   HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDSender statsDSender, String serviceName) {
 
     this.hhMemcachedClient = hhMemcachedClient;
 
-    counters = new Counters(500);
+    hitMissCounters = new Counters(500);
     histograms = new Histograms(1000, 20);
+    errorCounters = new Counters(500);
 
-    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), counters);
+    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), hitMissCounters);
     statsDSender.sendPercentilesPeriodically(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, 50, 97, 99, 100);
+    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.errors"), errorCounters);
   }
 
   @Override
   public Object get(String region, String key) {
-    return callSyncWithExecutionTimeAndHitMissStats(() -> hhMemcachedClient.get(region, key), region, key);
+    return callSyncWithStats(() -> hhMemcachedClient.get(region, key), region, key, GET_COMMAND_TAG);
   }
 
   @Override
   public Map<String, Object> getSome(String region, String[] keys) {
-    final long startTime = System.currentTimeMillis();
-    Map<String, Object> object = hhMemcachedClient.getSome(region, keys);
-    final long timeEnd = System.currentTimeMillis();
+    long startTime = System.currentTimeMillis();
+    Map<String, Object> keysToObjects = callWithExceptionStats(() ->
+            hhMemcachedClient.getSome(region, keys), region, GET_SOME_COMMAND_TAG, keys);
+    long timeEnd = System.currentTimeMillis();
 
     for (String key : keys) {
       sendExecutionTimeStats(region, key, startTime, timeEnd);
-      sendHitMissStats(object.get(key), region, key);
+      sendHitMissStats(keysToObjects.get(key), region, key);
     }
 
-    return object;
+    return keysToObjects;
   }
 
   @Override
   public CompletableFuture<Boolean> set(String region, String key, int exp, Object o) {
-    return callAsyncWithExecutionTimeStats(() -> hhMemcachedClient.set(region, key, exp, o), region, key);
+    return callAsyncWithStats(() -> hhMemcachedClient.set(region, key, exp, o), region, key, SET_COMMAND_TAG);
   }
 
   @Override
   public CompletableFuture<Boolean> delete(String region, String key) {
-    return callAsyncWithExecutionTimeStats(() -> hhMemcachedClient.delete(region, key), region, key);
+    return callAsyncWithStats(() -> hhMemcachedClient.delete(region, key), region, key, DELETE_COMMAND_TAG);
   }
 
   @Override
   public CASPair gets(String region, String key) {
-    return callSyncWithExecutionTimeAndHitMissStats(() -> hhMemcachedClient.gets(region, key), region, key);
+    return callSyncWithStats(() -> hhMemcachedClient.gets(region, key), region, key, GETS_COMMAND_TAG);
   }
 
   @Override
   public CompletableFuture<Boolean> add(String region, String key, int exp, Object o) {
-    return callAsyncWithExecutionTimeStats(() -> hhMemcachedClient.add(region, key, exp, o), region, key);
+    return callAsyncWithStats(() -> hhMemcachedClient.add(region, key, exp, o), region, key, ADD_COMMAND_TAG);
   }
 
   @Override
   public CompletableFuture<CASResponse> asyncCas(
       String region, String key, long casId, int exp, Object o) {
 
-    return callAsyncWithExecutionTimeStats(() -> hhMemcachedClient.asyncCas(region, key, casId, exp, o), region, key);
+    return callAsyncWithStats(() -> hhMemcachedClient.asyncCas(region, key, casId, exp, o), region, key, ASYNC_CAS_COMMAND_TAG);
   }
 
   @Override
   public long increment(String region, String key, int by, int def) {
-    final long time = System.currentTimeMillis();
+    long time = System.currentTimeMillis();
 
-    Long object = hhMemcachedClient.increment(region, key, by, def);
+    long object = callWithExceptionStats(() -> hhMemcachedClient.increment(region, key, by, def), region, INCREMENT_COMMAND_TAG, key);
 
     sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
     return object;
   }
 
-  private <T> T callSyncWithExecutionTimeAndHitMissStats(Supplier<T> method, String region, String key) {
-    final long time = System.currentTimeMillis();
-    T object = method.get();
+  private <T> T callSyncWithStats(Supplier<T> method, String region, String key, Tag commandTag) {
+    long time = System.currentTimeMillis();
+    T object = callWithExceptionStats(method, region, commandTag, key);
 
     sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
     sendHitMissStats(object, region, key);
@@ -96,12 +113,19 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     return object;
   }
 
-  private <T> CompletableFuture<T> callAsyncWithExecutionTimeStats(
-      Supplier<CompletableFuture<T>> method, String region, String key) {
-    final long time = System.currentTimeMillis();
+  private <T> CompletableFuture<T> callAsyncWithStats(
+      Supplier<CompletableFuture<T>> method, String region, String key, Tag commandTag) {
+    long time = System.currentTimeMillis();
     CompletableFuture<T> completableFuture = method.get();
 
-    completableFuture.thenRun(() -> sendExecutionTimeStats(region, key, time, System.currentTimeMillis()));
+    completableFuture.whenComplete((completableFutureValue, exception) -> {
+      if (exception == null) {
+        sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
+      } else {
+        sendExceptionStats(region, key, commandTag, exception);
+      }
+    });
+
     return completableFuture;
   }
 
@@ -109,10 +133,33 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     Tag regionTag = new Tag("region", region);
     Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
     if (object == null) {
-      counters.add(1, MISS_TAG, regionTag, primaryNodeTag);
+      hitMissCounters.add(1, MISS_TAG, regionTag, primaryNodeTag);
     } else {
-      counters.add(1, HIT_TAG, regionTag, primaryNodeTag);
+      hitMissCounters.add(1, HIT_TAG, regionTag, primaryNodeTag);
     }
+  }
+
+  private <T> T callWithExceptionStats(Supplier<T> method, String region, Tag commandTag, String... keys) {
+    try {
+      return method.get();
+    } catch (RuntimeException e) {
+      for (String key : keys) {
+        sendExceptionStats(region, key, commandTag, e);
+      }
+      throw e;
+    }
+  }
+
+  private void sendExceptionStats(String region, String key, Tag commandTag, Throwable exception) {
+    Tag typeOfErrorTag = OTHER_ERROR_TAG;
+    if (exception instanceof OperationTimeoutException) {
+      typeOfErrorTag = OPERATION_TIMEOUT_ERROR_TAG;
+    }
+
+    Tag regionTag = new Tag("region", region);
+    Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
+
+    errorCounters.add(1, typeOfErrorTag, regionTag, primaryNodeTag, commandTag);
   }
 
   private String getPrimaryNode(String region, String key) {

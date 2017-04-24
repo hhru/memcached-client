@@ -21,15 +21,4 @@ public class HHSpyClientIncrementTest {
 
     assertEquals(newValue, hhSpyClient.increment("region", "key", by, defaultValue));
   }
-
-  @Test
-  public void exception() {
-    String keyWithRegion = HHSpyMemcachedClient.getKey("region", "key");
-    int by = 1;
-    int defaultValue = 1;
-    when(spyClientMock.incr(keyWithRegion, by, defaultValue)).thenThrow(RuntimeException.class);
-
-    assertEquals(-1L, hhSpyClient.increment("region", "key", by, defaultValue));
-  }
-
 }
