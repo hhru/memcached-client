@@ -19,15 +19,15 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private final Counters counters;
   private final Histograms histograms;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDSender statsDSender) {
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDSender statsDSender, String serviceName) {
 
     this.hhMemcachedClient = hhMemcachedClient;
 
     counters = new Counters(500);
     histograms = new Histograms(1000, 20);
 
-    statsDSender.sendCountersPeriodically("memcached.hitMiss", counters);
-    statsDSender.sendPercentilesPeriodically("memcached.time", histograms, 50, 97, 99, 100);
+    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), counters);
+    statsDSender.sendPercentilesPeriodically(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, 50, 97, 99, 100);
   }
 
   @Override
@@ -121,6 +121,10 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
 
   private void sendExecutionTimeStats(String region, String key, long timeStart, long timeEnd) {
     histograms.save((int) (timeEnd - timeStart), new Tag("primaryNode", getPrimaryNode(region, key)));
+  }
+
+  private static String getMetricNameWithServiceName(String serviceName, String metricName) {
+    return serviceName + '.' + metricName;
   }
 
   @Override

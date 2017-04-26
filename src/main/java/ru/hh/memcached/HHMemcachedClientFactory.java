@@ -21,7 +21,7 @@ import static java.lang.Integer.parseInt;
 
 public class HHMemcachedClientFactory {
 
-  public static HHMemcachedClient create(Properties properties, StatsDSender statsDSender) throws IOException {
+  public static HHMemcachedClient create(Properties properties, StatsDSender statsDSender, String serviceName) throws IOException {
     int opQueueCapacity = parseInt(properties.getProperty("opQueueCapacity"));
     int writeQueueCapacity = parseInt(properties.getProperty("writeOpQueueCapacity"));
     int readQueueCapacity = parseInt(properties.getProperty("readOpQueueCapacity"));
@@ -60,7 +60,7 @@ public class HHMemcachedClientFactory {
 
     HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
     if (parseBoolean(properties.getProperty("sendStats"))) {
-      return new HHMonitoringMemcachedClient(memcachedClient, statsDSender);
+      return new HHMonitoringMemcachedClient(memcachedClient, statsDSender, serviceName);
     } else {
       return memcachedClient;
     }
