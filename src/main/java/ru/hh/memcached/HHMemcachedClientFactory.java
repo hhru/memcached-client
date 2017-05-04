@@ -38,8 +38,8 @@ public class HHMemcachedClientFactory {
       readQueueFactory = () -> new ArrayBlockingQueue<>(readQueueCapacity);
     }
 
-    final ConnectionFactoryBuilder builder = new ConnectionFactoryBuilder()
-        .setOpTimeout(parseInt(properties.getProperty("opTimeoutMs")))
+    ConnectionFactory readsConnectionFactory = new ConnectionFactoryBuilder()
+        .setOpTimeout(parseInt(properties.getProperty("readOpTimeoutMs")))
         .setOpQueueMaxBlockTime(parseInt(properties.getProperty("opQueueMaxBlockTime")))
         .setOpQueueFactory(opQueueFactory)
         .setWriteOpQueueFactory(writeQueueFactory)
@@ -51,14 +51,23 @@ public class HHMemcachedClientFactory {
         .setMaxReconnectDelay(parseInt(properties.getProperty("maxReconnectDelay")))
         .setTimeoutExceptionThreshold(parseInt(properties.getProperty("timeoutExceptionThreshold")))
         .setDaemon(true)
-        .setUseNagleAlgorithm(false);
-    ConnectionFactory connectionFactory = builder.build();
+        .setUseNagleAlgorithm(false)
+        .build();
+    ConnectionFactory writesConnectionFactory = new ConnectionFactoryBuilder(readsConnectionFactory)
+        .setOpTimeout(parseInt(properties.getProperty("writeOpTimeoutMs")))
+        .build();
 
     List<InetSocketAddress> nodes = AddrUtil.getAddresses(properties.getProperty("servers"));
 
     int numOfInstances = getNumOfInstances(properties);
+    int readsToWritesRatio = parseInt(properties.getProperty("readsToWritesRatio", "2"));
+    int writesInstances = Math.max(1, numOfInstances / (readsToWritesRatio + 1));
+    int readsInstances = Math.max(1, numOfInstances - writesInstances);
 
-    HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
+    HHMemcachedClient readsMemcachedClient = createHHBalancingMemcachedClient(readsConnectionFactory, nodes, readsInstances);
+    HHMemcachedClient writesMemcachedClient = createHHBalancingMemcachedClient(writesConnectionFactory, nodes, writesInstances);
+    HHMemcachedClient memcachedClient = new HHReadWriteSplitMemcachedClient(readsMemcachedClient, writesMemcachedClient);
+
     if (parseBoolean(properties.getProperty("sendStats"))) {
       memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, statsDSender, serviceName);
     }
@@ -77,9 +86,9 @@ public class HHMemcachedClientFactory {
     }
   }
 
-  private static HHMemcachedClient createHHSpyMemcachedClient(ConnectionFactory connectionFactory,
-                                                              List<InetSocketAddress> nodes,
-                                                              int numOfInstances) throws IOException {
+  private static HHMemcachedClient createHHBalancingMemcachedClient(ConnectionFactory connectionFactory,
+                                                                    List<InetSocketAddress> nodes,
+                                                                    int numOfInstances) throws IOException {
     if (numOfInstances == 1) {
       return createHHSpyMemcachedClient(connectionFactory, nodes);
     } else {
