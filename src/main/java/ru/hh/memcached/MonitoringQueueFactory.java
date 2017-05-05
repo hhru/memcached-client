@@ -14,13 +14,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 class MonitoringQueueFactory implements OperationQueueFactory {
 
   private final int capacity;
-  private final String name;
+  private final String serviceName;
+  private final String queueName;
   private final AtomicInteger idGenerator = new AtomicInteger(1);
   private final StatsDSender statsDSender;
 
-  MonitoringQueueFactory(int cap, String name, StatsDSender statsDSender) {
+  MonitoringQueueFactory(int cap, String serviceName, String queueName, StatsDSender statsDSender) {
     this.capacity = cap;
-    this.name = name;
+    this.serviceName = serviceName;
+    this.queueName = queueName;
     this.statsDSender = statsDSender;
   }
 
@@ -29,9 +31,9 @@ class MonitoringQueueFactory implements OperationQueueFactory {
     Max maxSizeCollector = new Max(0);
     BlockingQueue<Operation> queue = new MonitoringArrayBlockingQueue<>(capacity, maxSizeCollector);
     statsDSender.sendMaxPeriodically(
-        "memcached.maxQueueSize",
+        serviceName + ".memcached.maxQueueSize",
         maxSizeCollector,
-        new Tag("queue", name),
+        new Tag("queue", queueName),
         new Tag("id", Integer.toString(idGenerator.getAndIncrement()))
     );
     return queue;

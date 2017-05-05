@@ -29,9 +29,9 @@ public class HHMemcachedClientFactory {
     OperationQueueFactory writeQueueFactory;
     OperationQueueFactory readQueueFactory;
     if (parseBoolean(properties.getProperty("sendQueuesStats"))) {
-      opQueueFactory = new MonitoringQueueFactory(opQueueCapacity, "operation", statsDSender);
-      readQueueFactory = new MonitoringQueueFactory(readQueueCapacity, "read", statsDSender);
-      writeQueueFactory = new MonitoringQueueFactory(writeQueueCapacity, "write", statsDSender);
+      opQueueFactory = new MonitoringQueueFactory(opQueueCapacity, serviceName, "operation", statsDSender);
+      readQueueFactory = new MonitoringQueueFactory(readQueueCapacity, serviceName, "read", statsDSender);
+      writeQueueFactory = new MonitoringQueueFactory(writeQueueCapacity, serviceName, "write", statsDSender);
     } else {
       opQueueFactory = () -> new ArrayBlockingQueue<>(opQueueCapacity);
       writeQueueFactory = () -> new ArrayBlockingQueue<>(writeQueueCapacity);
