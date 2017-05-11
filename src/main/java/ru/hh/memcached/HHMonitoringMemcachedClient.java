@@ -156,10 +156,9 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
       typeOfErrorTag = OPERATION_TIMEOUT_ERROR_TAG;
     }
 
-    Tag regionTag = new Tag("region", region);
     Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
 
-    errorCounters.add(1, typeOfErrorTag, regionTag, primaryNodeTag, commandTag);
+    errorCounters.add(1, typeOfErrorTag, primaryNodeTag, commandTag);
   }
 
   private String getPrimaryNode(String region, String key) {
