@@ -3,6 +3,7 @@ package ru.hh.memcached;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.internal.BulkFuture;
+import net.spy.memcached.internal.OperationCompletionListener;
 import net.spy.memcached.internal.OperationFuture;
 
 import java.net.InetSocketAddress;
@@ -102,15 +103,22 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   @SuppressWarnings(value = "unchecked")
   <T> CompletableFuture<T> getCompletableFutureFromOperationFuture(OperationFuture<T> operationFuture) {
     CompletableFuture<T> completableFuture = new CompletableFuture<>();
-    operationFuture.addListener(future -> {
+
+    OperationCompletionListener operationCompletionListener = future -> {
       try {
         completableFuture.complete((T) future.get());
       } catch (Throwable throwable) {
+        if (throwable instanceof InterruptedException) {
+          Thread.currentThread().interrupt();
+        }
         completableFuture.completeExceptionally(throwable);
       }
-    });
+    };
+    operationFuture.addListener(operationCompletionListener);
+
     completableFuture.whenComplete((completableFutureValue, exception) -> {
       if (exception instanceof CancellationException) {
+        operationFuture.removeListener(operationCompletionListener);
         operationFuture.cancel();
       }
     });
