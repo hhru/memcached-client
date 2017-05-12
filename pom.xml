@@ -114,8 +114,8 @@
     </build>
 
     <scm>
-        <connection>scm:git:git@github.com:hhru/etc.git</connection>
-        <developerConnection>scm:git:git@github.com:hhru/etc.git</developerConnection>
+        <connection>scm:git:git@github.com:hhru/memcached-client.git</connection>
+        <developerConnection>scm:git:git@github.com:hhru/memcached-client.git</developerConnection>
         <tag>HEAD</tag>
     </scm>
 </project>
