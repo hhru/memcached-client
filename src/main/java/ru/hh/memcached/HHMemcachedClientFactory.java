@@ -8,7 +8,6 @@ import net.spy.memcached.ConnectionFactoryBuilder;
 import net.spy.memcached.ConnectionFactoryBuilder.Protocol;
 import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.FailureMode;
-import net.spy.memcached.HashAlgorithm;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.ops.OperationQueueFactory;
 import ru.hh.metrics.StatsDSender;
@@ -40,7 +39,7 @@ public class HHMemcachedClientFactory {
     }
 
     Protocol protocol = Protocol.valueOf(properties.getProperty("protocol", Protocol.BINARY.name()));
-    ConnectionFactory readsConnectionFactory = new ConnectionFactoryBuilder()
+    ConnectionFactoryBuilder readsConnectionFactoryBuilder = new ConnectionFactoryBuilder()
         .setOpTimeout(parseInt(properties.getProperty("readOpTimeoutMs")))
         .setOpQueueMaxBlockTime(parseInt(properties.getProperty("opQueueMaxBlockTime")))
         .setOpQueueFactory(opQueueFactory)
@@ -53,13 +52,9 @@ public class HHMemcachedClientFactory {
         .setMaxReconnectDelay(parseInt(properties.getProperty("maxReconnectDelay")))
         .setTimeoutExceptionThreshold(parseInt(properties.getProperty("timeoutExceptionThreshold")))
         .setDaemon(true)
-        .setUseNagleAlgorithm(false)
-        .build();
-    ConnectionFactory writesConnectionFactory = connectionFactoryBuilder(readsConnectionFactory,
-        opQueueFactory, writeQueueFactory, readQueueFactory,
-        ConnectionFactoryBuilder.Locator.CONSISTENT, DefaultHashAlgorithm.KETAMA_HASH, protocol)
-        .setOpTimeout(parseInt(properties.getProperty("writeOpTimeoutMs")))
-        .build();
+        .setUseNagleAlgorithm(false);
+    ConnectionFactoryBuilder writesConnectionFactoryBuilder = new ConnectionFactoryBuilder(readsConnectionFactoryBuilder)
+        .setOpTimeout(parseInt(properties.getProperty("writeOpTimeoutMs")));
 
     List<InetSocketAddress> nodes = AddrUtil.getAddresses(properties.getProperty("servers"));
 
@@ -68,8 +63,8 @@ public class HHMemcachedClientFactory {
     int writesInstances = Math.max(1, numOfInstances / (readsToWritesRatio + 1));
     int readsInstances = Math.max(1, numOfInstances - writesInstances);
 
-    HHMemcachedClient readsMemcachedClient = createHHBalancingMemcachedClient(readsConnectionFactory, nodes, readsInstances);
-    HHMemcachedClient writesMemcachedClient = createHHBalancingMemcachedClient(writesConnectionFactory, nodes, writesInstances);
+    HHMemcachedClient readsMemcachedClient = createHHBalancingMemcachedClient(readsConnectionFactoryBuilder.build(), nodes, readsInstances);
+    HHMemcachedClient writesMemcachedClient = createHHBalancingMemcachedClient(writesConnectionFactoryBuilder.build(), nodes, writesInstances);
     HHMemcachedClient memcachedClient = new HHReadWriteSplitMemcachedClient(readsMemcachedClient, writesMemcachedClient);
 
     if (parseBoolean(properties.getProperty("sendStats"))) {
@@ -77,26 +72,6 @@ public class HHMemcachedClientFactory {
     }
 
     return new HHExceptionSwallowerMemcachedClient(memcachedClient);
-  }
-
-  /** Wrapper around ConnectionFactoryBuilder constructor which does not copy some important settings.<br/>
-   * Remove if bugs are fixed. There is a ConnectionFactoryBuilderTest that tests if bugs are present.*/
-  static ConnectionFactoryBuilder connectionFactoryBuilder(ConnectionFactory source,
-                                                           OperationQueueFactory opQueueFactory,
-                                                           OperationQueueFactory writeOpQueueFactory,
-                                                           OperationQueueFactory readOpQueueFactory,
-                                                           ConnectionFactoryBuilder.Locator locatorType,
-                                                           HashAlgorithm hashAlgorithm,
-                                                           Protocol protocol) {
-    return new ConnectionFactoryBuilder(source)
-        .setOpQueueFactory(opQueueFactory)
-        .setWriteOpQueueFactory(writeOpQueueFactory)
-        .setReadOpQueueFactory(readOpQueueFactory)
-        .setLocatorType(locatorType)
-        .setHashAlg(hashAlgorithm)
-        .setProtocol(protocol)
-        // The strange code in ConnectionFactoryBuilder.setTimeoutExceptionThreshold sets timeoutExceptionThreshold as param - 2.
-        .setTimeoutExceptionThreshold(source.getTimeoutExceptionThreshold() + 2);
   }
 
   private static int getNumOfInstances(Properties properties) {

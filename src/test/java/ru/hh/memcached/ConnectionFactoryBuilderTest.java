@@ -18,7 +18,6 @@ import java.util.concurrent.ArrayBlockingQueue;
 import static java.util.Collections.singletonList;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 public class ConnectionFactoryBuilderTest {
@@ -37,7 +36,7 @@ public class ConnectionFactoryBuilderTest {
     int expectedReadOpQueueCapacity = 50;
     OperationQueueFactory readOpQueueFactory = () -> new ArrayBlockingQueue<>(expectedReadOpQueueCapacity);
 
-    ConnectionFactory connectionFactory = new ConnectionFactoryBuilder()
+    ConnectionFactoryBuilder sourceBuilder = new ConnectionFactoryBuilder()
         .setOpTimeout(opTimeout)
         .setOpQueueMaxBlockTime(opQueueMaxBlockTime)
         .setOpQueueFactory(opQueueFactory)
@@ -50,60 +49,25 @@ public class ConnectionFactoryBuilderTest {
         .setMaxReconnectDelay(maxReconnectDelay)
         .setTimeoutExceptionThreshold(timeoutExceptionThreshold)
         .setDaemon(true)
-        .setUseNagleAlgorithm(false)
-        .build();
+        .setUseNagleAlgorithm(false);
 
-    ConnectionFactory buggedCopy = new ConnectionFactoryBuilder(connectionFactory).build();
-    ConnectionFactory fixedCopy = HHMemcachedClientFactory.connectionFactoryBuilder(connectionFactory,
-        opQueueFactory, writeOpQueueFactory, readOpQueueFactory,
-        ConnectionFactoryBuilder.Locator.CONSISTENT, DefaultHashAlgorithm.KETAMA_HASH, ConnectionFactoryBuilder.Protocol.BINARY
-    ).build();
+    ConnectionFactory factoryFromCopiedBuilder = new ConnectionFactoryBuilder(sourceBuilder).build();
 
-    assertEquals(opTimeout, buggedCopy.getOperationTimeout());
-    assertEquals(opQueueMaxBlockTime, buggedCopy.getOpQueueMaxBlockTime());
-
-    assertNotEquals("opQueueFactory should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-            "remove the assertion and the corresponding fix if the bug is fixed",
-        expectedOpQueueCapacity, buggedCopy.createOperationQueue().remainingCapacity());
-    assertEquals(expectedOpQueueCapacity, fixedCopy.createOperationQueue().remainingCapacity());
-
-    assertNotEquals("writeOpQueueFactory should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-            "remove the assertion and the corresponding fix if the bug is fixed",
-        expectedWriteOpQueueCapacity, buggedCopy.createWriteOperationQueue().remainingCapacity());
-    assertEquals(expectedWriteOpQueueCapacity, fixedCopy.createWriteOperationQueue().remainingCapacity());
-
-    assertNotEquals("readOpQueueFactory should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-        "remove the assertion and the corresponding fix if the bug is fixed",
-        expectedReadOpQueueCapacity, buggedCopy.createReadOperationQueue().remainingCapacity());
-    assertEquals(expectedReadOpQueueCapacity, fixedCopy.createReadOperationQueue().remainingCapacity());
-
-    assertEquals(FailureMode.Cancel, buggedCopy.getFailureMode());
-
-    assertFalse("protocol should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-        "remove the assertion and the corresponding fix if the bug is fixed",
-        buggedCopy.getOperationFactory() instanceof BinaryOperationFactory);
-    assertTrue(fixedCopy.getOperationFactory() instanceof BinaryOperationFactory);
+    assertEquals(opTimeout, factoryFromCopiedBuilder.getOperationTimeout());
+    assertEquals(opQueueMaxBlockTime, factoryFromCopiedBuilder.getOpQueueMaxBlockTime());
+    assertEquals(expectedOpQueueCapacity, factoryFromCopiedBuilder.createOperationQueue().remainingCapacity());
+    assertEquals(expectedWriteOpQueueCapacity, factoryFromCopiedBuilder.createWriteOperationQueue().remainingCapacity());
+    assertEquals(expectedReadOpQueueCapacity, factoryFromCopiedBuilder.createReadOperationQueue().remainingCapacity());
+    assertEquals(FailureMode.Cancel, factoryFromCopiedBuilder.getFailureMode());
+    assertTrue(factoryFromCopiedBuilder.getOperationFactory() instanceof BinaryOperationFactory);
 
     List<InetSocketAddress> memcachedHosts = singletonList(new InetSocketAddress(11211));
+    MemcachedClient client = new MemcachedClient(factoryFromCopiedBuilder, memcachedHosts);
+    assertTrue(client.getNodeLocator() instanceof KetamaNodeLocator);
 
-    MemcachedClient memcachedClientFromBuggedCopy = new MemcachedClient(buggedCopy, memcachedHosts);
-    assertFalse("locatorType should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-        "remove the assertion and the corresponding fix if the bug is fixed",
-        memcachedClientFromBuggedCopy.getNodeLocator() instanceof KetamaNodeLocator);
-
-    MemcachedClient memcachedClientFromFixedCopy = new MemcachedClient(fixedCopy, memcachedHosts);
-    assertTrue(memcachedClientFromFixedCopy.getNodeLocator() instanceof KetamaNodeLocator);
-
-    assertEquals(maxReconnectDelay, buggedCopy.getMaxReconnectDelay());
-
-    assertNotEquals("timeoutExceptionThreshold should not be copied because of the bug in the ConnectionFactoryBuilder constructor, " +
-        "remove the assertion and the corresponding fix if the bug is fixed",
-        timeoutExceptionThreshold, buggedCopy.getTimeoutExceptionThreshold());
-    // -2 because of the strange code in ConnectionFactoryBuilder.setTimeoutExceptionThreshold which sets target value to param - 2.
-    // Remove -2 if this strange code is fixed.
-    assertEquals(timeoutExceptionThreshold - 2, fixedCopy.getTimeoutExceptionThreshold());
-
-    assertTrue(buggedCopy.isDaemon());
-    assertFalse(buggedCopy.useNagleAlgorithm());
+    assertEquals(maxReconnectDelay, factoryFromCopiedBuilder.getMaxReconnectDelay());
+    assertEquals(timeoutExceptionThreshold, factoryFromCopiedBuilder.getTimeoutExceptionThreshold());
+    assertTrue(factoryFromCopiedBuilder.isDaemon());
+    assertFalse(factoryFromCopiedBuilder.useNagleAlgorithm());
   }
 }
