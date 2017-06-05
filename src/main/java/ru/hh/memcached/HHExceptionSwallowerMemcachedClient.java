@@ -28,8 +28,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       return hhMemcachedClient.get(region, key);
     } catch (RuntimeException e) {
-      logger.warn("get failed, region {}, primary node {}, {}, returning null",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("get failed, region {}, primary node {}, {}, chain of causes is {}, returning null",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return null;
   }
     }
@@ -41,7 +41,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       return hhMemcachedClient.getSome(region, keys);
     } catch (RuntimeException e) {
-      logger.warn("getSome failed, region {}, {}, returning empty map", region, e.toString());
+      logger.warn("getSome failed, region {}, {}, chain of causes is {}, returning empty map",
+              region, e.toString(), getChainOfCauses(e));
       return Collections.emptyMap();
     }
   }
@@ -52,8 +53,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       origFuture = hhMemcachedClient.set(region, key, exp, o);
     } catch (RuntimeException e) {
-      logger.warn("failed to get set future, region {}, primary node {}, {}, returning false future",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to get set future, region {}, primary node {}, {}, chain of causes is {}, returning false future",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return CompletableFuture.completedFuture(false);
     }
 
@@ -66,8 +67,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       origFuture = hhMemcachedClient.delete(region, key);
     } catch (RuntimeException e) {
-      logger.warn("failed to get delete future, region {}, primary node {}, {}, returning false future",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to get delete future, region {}, primary node {}, {}, chain of causes is {}, returning false future",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return CompletableFuture.completedFuture(false);
     }
     return getFutureWithoutException(origFuture, false, region, key, "delete");
@@ -78,8 +79,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       return hhMemcachedClient.gets(region, key);
     } catch (RuntimeException e) {
-      logger.warn("failed to get cas value, region {}, primary node {}, {}, returning null",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to get cas value, region {}, primary node {}, {}, chain of causes is {}, returning null",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return null;
     }
   }
@@ -90,8 +91,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       origFuture = hhMemcachedClient.add(region, key, exp, o);
     } catch (RuntimeException e) {
-      logger.warn("failed to get add future, region {}, primary node {}, {}, returning false future",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to get add future, region {}, primary node {}, {}, chain of causes is {}, returning false future",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return CompletableFuture.completedFuture(false);
     }
     return getFutureWithoutException(origFuture, false, region, key, "add");
@@ -103,8 +104,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       origFuture = hhMemcachedClient.asyncCas(region, key, casId, exp, o);
     } catch (RuntimeException e) {
-      logger.warn("failed to get async cas future, region {}, primary node {}, {}, returning error future",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to get async cas future, region {}, primary node {}, {}, chain of causes is {}, returning error future",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return CompletableFuture.completedFuture(CASResponse.ERROR);
     }
     return getFutureWithoutException(origFuture, null, region, key, "cas");
@@ -115,8 +116,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     try {
       return hhMemcachedClient.increment(region, key, by, def);
     } catch (RuntimeException e) {
-      logger.warn("failed to increment key value, region {}, primary node {}, {}, returning -1",
-          region, getPrimaryNodeString(region, key), e.toString());
+      logger.warn("failed to increment key value, region {}, primary node {}, {}, chain of causes is {}, returning -1",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
       return -1;
     }
   }
@@ -140,8 +141,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
       if (null == exception) {
         return value;
       } else {
-        logger.warn("method async {} with {}, region {}, primary node {}, returning {}",
-                method, exception, region, getPrimaryNodeString(region, key), fallback);
+        logger.warn("method async {} failed with {}, chain of causes is {}, region {}, primary node {}, returning {}",
+                method, exception, getChainOfCauses(exception), region, getPrimaryNodeString(region, key), fallback);
         return fallback;
       }
     });
@@ -153,5 +154,16 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
     });
 
     return completableFuture;
+  }
+
+  private String getChainOfCauses(Throwable throwable) {
+    StringBuilder stringBuilder = new StringBuilder(throwable.toString());
+
+    while (throwable.getCause() != null) {
+      throwable = throwable.getCause();
+      stringBuilder.append(" <- ").append(throwable.toString());
+    }
+
+    return stringBuilder.toString();
   }
 }
