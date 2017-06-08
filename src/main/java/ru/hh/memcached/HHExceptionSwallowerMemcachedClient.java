@@ -141,8 +141,8 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
       if (null == exception) {
         return value;
       } else {
-        logger.warn("method async {} failed with {}, chain of causes is {}, region {}, primary node {}, returning {}",
-                method, exception, getChainOfCauses(exception), region, getPrimaryNodeString(region, key), fallback);
+        logger.warn("method async {} failed, causes: {}, region {}, primary node {}, returning {}",
+                method, getChainOfCauses(exception), region, getPrimaryNodeString(region, key), fallback);
         return fallback;
       }
     });
