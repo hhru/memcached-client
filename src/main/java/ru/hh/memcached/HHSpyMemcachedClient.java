@@ -3,13 +3,10 @@ package ru.hh.memcached;
 import net.spy.memcached.CASValue;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.internal.BulkFuture;
-import net.spy.memcached.internal.OperationCompletionListener;
-import net.spy.memcached.internal.OperationFuture;
 
 import java.net.InetSocketAddress;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -60,13 +57,13 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   @Override
   public CompletableFuture<Boolean> set(String region, String key, int exp, Object o) {
     String keyWithRegion = getKey(region, key);
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.set(keyWithRegion, exp, o));
+    return new OperationToCompletableFutureAdapter<>(spyMemcachedClient.set(keyWithRegion, exp, o));
   }
 
   @Override
   public CompletableFuture<Boolean> delete(String region, String key) {
     String keyWithRegion = getKey(region, key);
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.delete(keyWithRegion));
+    return new OperationToCompletableFutureAdapter<>(spyMemcachedClient.delete(keyWithRegion));
   }
 
   @Override
@@ -79,13 +76,13 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   @Override
   public CompletableFuture<Boolean> add(String region, String key, int exp, Object o) {
     String keyWithRegion = getKey(region, key);
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.add(keyWithRegion, exp, o));
+    return new OperationToCompletableFutureAdapter<>(spyMemcachedClient.add(keyWithRegion, exp, o));
   }
 
   @Override
   public CompletableFuture<CASResponse> asyncCas(String region, String key, long casId, int exp, Object o) {
     String keyWithRegion = getKey(region, key);
-    return getCompletableFutureFromOperationFuture(spyMemcachedClient.asyncCAS(keyWithRegion, casId, exp, o))
+    return new OperationToCompletableFutureAdapter<>(spyMemcachedClient.asyncCAS(keyWithRegion, casId, exp, o))
         .thenApply(HHSpyMemcachedClient::getCASResponseFromSpyCASResponse);
   }
 
@@ -98,31 +95,6 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return (InetSocketAddress) spyMemcachedClient.getConnection().getLocator().getPrimary(key).getSocketAddress();
-  }
-
-  @SuppressWarnings(value = "unchecked")
-  <T> CompletableFuture<T> getCompletableFutureFromOperationFuture(OperationFuture<T> operationFuture) {
-    CompletableFuture<T> completableFuture = new CompletableFuture<>();
-
-    OperationCompletionListener operationCompletionListener = future -> {
-      try {
-        completableFuture.complete((T) future.get());
-      } catch (Throwable throwable) {
-        if (throwable instanceof InterruptedException) {
-          Thread.currentThread().interrupt();
-        }
-        completableFuture.completeExceptionally(throwable);
-      }
-    };
-    operationFuture.addListener(operationCompletionListener);
-
-    completableFuture.whenComplete((completableFutureValue, exception) -> {
-      if (exception instanceof CancellationException) {
-        operationFuture.removeListener(operationCompletionListener);
-        operationFuture.cancel();
-      }
-    });
-    return completableFuture;
   }
 
   public static String getKey(String region, String key) {
