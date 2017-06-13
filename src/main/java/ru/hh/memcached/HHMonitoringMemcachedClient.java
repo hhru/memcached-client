@@ -3,7 +3,9 @@ package ru.hh.memcached;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import net.spy.memcached.OperationTimeoutException;
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
@@ -16,7 +18,8 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private static final Tag HIT_TAG = new Tag("hitMiss", "hit");
   private static final Tag MISS_TAG = new Tag("hitMiss", "miss");
 
-  private static final Tag OPERATION_TIMEOUT_ERROR_TAG = new Tag("error_type", "operation_timeout");
+  private static final Tag TIMEOUT_ERROR_TAG = new Tag("error_type", "timeout");
+  private static final Tag CANCELLATION_ERROR_TAG = new Tag("error_type", "cancellation");
   private static final Tag OTHER_ERROR_TAG = new Tag("error_type", "other");
 
   private static final Tag GET_COMMAND_TAG = new Tag("command", "get");
@@ -151,14 +154,28 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   }
 
   private void sendExceptionStats(String region, String key, Tag commandTag, Throwable exception) {
-    Tag typeOfErrorTag = OTHER_ERROR_TAG;
-    if (exception instanceof OperationTimeoutException) {
-      typeOfErrorTag = OPERATION_TIMEOUT_ERROR_TAG;
+    Tag typeOfErrorTag;
+    Throwable rootCause = getRootCause(exception);
+
+    if (rootCause instanceof OperationTimeoutException || rootCause instanceof TimeoutException) {
+      typeOfErrorTag = TIMEOUT_ERROR_TAG;
+    } else if (rootCause instanceof CancellationException) {
+      typeOfErrorTag = CANCELLATION_ERROR_TAG;
+    } else {
+      typeOfErrorTag = OTHER_ERROR_TAG;
     }
 
     Tag primaryNodeTag =  new Tag("primaryNode", getPrimaryNode(region, key));
 
     errorCounters.add(1, typeOfErrorTag, primaryNodeTag, commandTag);
+  }
+
+  private static Throwable getRootCause(Throwable exception) {
+    while (exception.getCause() != null) {
+      exception = exception.getCause();
+    }
+    
+    return exception;
   }
 
   private String getPrimaryNode(String region, String key) {
