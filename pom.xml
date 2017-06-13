@@ -9,7 +9,7 @@
 
     <groupId>ru.hh.memcached</groupId>
     <artifactId>hh-memcached-client</artifactId>
-    <version>1.15</version>
+    <version>1.16-SNAPSHOT</version>
 
     <dependencies>
         <dependency>
@@ -116,6 +116,6 @@
     <scm>
         <connection>scm:git:git@github.com:hhru/memcached-client.git</connection>
         <developerConnection>scm:git:git@github.com:hhru/memcached-client.git</developerConnection>
-        <tag>hh-memcached-client-1.15</tag>
+        <tag>HEAD</tag>
     </scm>
 </project>
