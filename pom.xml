@@ -20,7 +20,7 @@
         <dependency>
             <groupId>ru.hh.metrics</groupId>
             <artifactId>hh-metrics</artifactId>
-            <version>0.12</version>
+            <version>0.16</version>
         </dependency>
         <dependency>
             <groupId>org.slf4j</groupId>
