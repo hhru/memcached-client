@@ -10,7 +10,7 @@ import net.spy.memcached.DefaultHashAlgorithm;
 import net.spy.memcached.FailureMode;
 import net.spy.memcached.MemcachedClient;
 import net.spy.memcached.ops.OperationQueueFactory;
-import ru.hh.metrics.StatsDSender;
+import ru.hh.nab.metrics.StatsDSender;
 
 import java.io.IOException;
 import java.util.Properties;
@@ -18,10 +18,17 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import static java.lang.Boolean.parseBoolean;
 import static java.lang.Integer.parseInt;
+import static java.util.Optional.ofNullable;
 
 public class HHMemcachedClientFactory {
+  private static final int DEFAULT_METRICS_SEND_INTERVAL_SEC = 60;
 
-  public static HHMemcachedClient create(Properties properties, StatsDSender statsDSender, String serviceName) throws IOException {
+  private HHMemcachedClientFactory() {}
+
+  public static HHMemcachedClient create(Properties properties, String serviceName, StatsDSender statsDSender) throws IOException {
+    int metricsSendIntervalSec = ofNullable(properties.getProperty("metricsSendIntervalSec")).map(Integer::parseInt)
+      .orElse(DEFAULT_METRICS_SEND_INTERVAL_SEC);
+
     int opQueueCapacity = parseInt(properties.getProperty("opQueueCapacity"));
     int writeQueueCapacity = parseInt(properties.getProperty("writeOpQueueCapacity"));
     int readQueueCapacity = parseInt(properties.getProperty("readOpQueueCapacity"));
@@ -29,9 +36,9 @@ public class HHMemcachedClientFactory {
     OperationQueueFactory writeQueueFactory;
     OperationQueueFactory readQueueFactory;
     if (parseBoolean(properties.getProperty("sendQueuesStats"))) {
-      opQueueFactory = new MonitoringQueueFactory(opQueueCapacity, serviceName, "operation", statsDSender);
-      readQueueFactory = new MonitoringQueueFactory(readQueueCapacity, serviceName, "read", statsDSender);
-      writeQueueFactory = new MonitoringQueueFactory(writeQueueCapacity, serviceName, "write", statsDSender);
+      opQueueFactory = new MonitoringQueueFactory(opQueueCapacity, serviceName, "operation", statsDSender, metricsSendIntervalSec);
+      readQueueFactory = new MonitoringQueueFactory(readQueueCapacity, serviceName, "read", statsDSender, metricsSendIntervalSec);
+      writeQueueFactory = new MonitoringQueueFactory(writeQueueCapacity, serviceName, "write", statsDSender, metricsSendIntervalSec);
     } else {
       opQueueFactory = () -> new ArrayBlockingQueue<>(opQueueCapacity);
       writeQueueFactory = () -> new ArrayBlockingQueue<>(writeQueueCapacity);
@@ -60,7 +67,7 @@ public class HHMemcachedClientFactory {
 
     HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
     if (parseBoolean(properties.getProperty("sendStats"))) {
-      memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, statsDSender, serviceName);
+      memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, serviceName, statsDSender, metricsSendIntervalSec);
     }
 
     return new HHExceptionSwallowerMemcachedClient(memcachedClient);

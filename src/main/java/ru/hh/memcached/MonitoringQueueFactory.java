@@ -2,9 +2,9 @@ package ru.hh.memcached;
 
 import net.spy.memcached.ops.Operation;
 import net.spy.memcached.ops.OperationQueueFactory;
-import ru.hh.metrics.Max;
-import ru.hh.metrics.StatsDSender;
-import ru.hh.metrics.Tag;
+import ru.hh.nab.metrics.Max;
+import ru.hh.nab.metrics.StatsDSender;
+import ru.hh.nab.metrics.Tag;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -18,24 +18,27 @@ class MonitoringQueueFactory implements OperationQueueFactory {
   private final String queueName;
   private final AtomicInteger idGenerator = new AtomicInteger(1);
   private final StatsDSender statsDSender;
+  private final int metricsSendIntervalSec;
 
-  MonitoringQueueFactory(int cap, String serviceName, String queueName, StatsDSender statsDSender) {
+  MonitoringQueueFactory(int cap, String serviceName, String queueName, StatsDSender statsDSender, int metricsSendIntervalSec) {
     this.capacity = cap;
     this.serviceName = serviceName;
     this.queueName = queueName;
     this.statsDSender = statsDSender;
+    this.metricsSendIntervalSec = metricsSendIntervalSec;
   }
 
   @Override
   public BlockingQueue<Operation> create() {
     Max maxSizeCollector = new Max(0);
     BlockingQueue<Operation> queue = new MonitoringArrayBlockingQueue<>(capacity, maxSizeCollector);
-    statsDSender.sendMaxPeriodically(
-        serviceName + ".memcached.maxQueueSize",
-        maxSizeCollector,
-        new Tag("queue", queueName),
-        new Tag("id", Integer.toString(idGenerator.getAndIncrement()))
-    );
+    String maxQueueSizeMetricName = serviceName + ".memcached.maxQueueSize";
+    Tag queueNameTag = new Tag("queue", queueName);
+
+    statsDSender.sendPeriodically(() -> statsDSender.sendMax(
+      maxQueueSizeMetricName, maxSizeCollector, queueNameTag, new Tag("id", Integer.toString(idGenerator.getAndIncrement()))
+    ), metricsSendIntervalSec);
+
     return queue;
   }
 
@@ -76,5 +79,4 @@ class MonitoringQueueFactory implements OperationQueueFactory {
 
     // we may not override 'addAll' because it calls 'add'
   }
-
 }
