@@ -34,10 +34,11 @@ class MonitoringQueueFactory implements OperationQueueFactory {
     BlockingQueue<Operation> queue = new MonitoringArrayBlockingQueue<>(capacity, maxSizeCollector);
     String maxQueueSizeMetricName = serviceName + ".memcached.maxQueueSize";
     Tag queueNameTag = new Tag("queue", queueName);
+    Tag idTag = new Tag("id", Integer.toString(idGenerator.getAndIncrement()));
 
-    statsDSender.sendPeriodically(() -> statsDSender.sendMax(
-      maxQueueSizeMetricName, maxSizeCollector, queueNameTag, new Tag("id", Integer.toString(idGenerator.getAndIncrement()))
-    ), metricsSendIntervalSec);
+    statsDSender.sendPeriodically(
+      () -> statsDSender.sendMax(maxQueueSizeMetricName, maxSizeCollector, queueNameTag, idTag), metricsSendIntervalSec
+    );
 
     return queue;
   }
