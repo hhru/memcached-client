@@ -1,6 +1,5 @@
 package ru.hh.memcached;
 
-
 import java.net.InetSocketAddress;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
@@ -9,10 +8,10 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 import net.spy.memcached.OperationTimeoutException;
 import static ru.hh.memcached.HHSpyMemcachedClient.getKey;
-import ru.hh.metrics.Counters;
-import ru.hh.metrics.Histograms;
-import ru.hh.metrics.StatsDSender;
-import ru.hh.metrics.Tag;
+import ru.hh.nab.metrics.Counters;
+import ru.hh.nab.metrics.Histograms;
+import ru.hh.nab.metrics.StatsDSender;
+import ru.hh.nab.metrics.Tag;
 
 class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private static final Tag HIT_TAG = new Tag("hitMiss", "hit");
@@ -36,17 +35,18 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private final Histograms histograms;
   private final Counters errorCounters;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, StatsDSender statsDSender, String serviceName) {
-
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, String serviceName, StatsDSender statsDSender, int metricsSendIntervalSec) {
     this.hhMemcachedClient = hhMemcachedClient;
 
     hitMissCounters = new Counters(500);
     histograms = new Histograms(1000, 20);
     errorCounters = new Counters(500);
 
-    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), hitMissCounters);
-    statsDSender.sendPercentilesPeriodically(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, 50, 97, 99, 100);
-    statsDSender.sendCountersPeriodically(getMetricNameWithServiceName(serviceName, "memcached.errors"), errorCounters);
+    statsDSender.sendPeriodically(() -> {
+      statsDSender.sendCounters(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), hitMissCounters);
+      statsDSender.sendHistograms(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, 95, 99, 100);
+      statsDSender.sendCounters(getMetricNameWithServiceName(serviceName, "memcached.errors"), errorCounters);
+    }, metricsSendIntervalSec);
   }
 
   @Override

@@ -25,7 +25,7 @@ public class HHExceptionSwallowerMemcachedClientTest {
   private final HHMemcachedClient hhExceptionSwallowerMemcachedClient = new HHExceptionSwallowerMemcachedClient(hhSpyClient);
 
   @Before
-  public void setUp() throws Exception {
+  public void setUp() {
     when(hhSpyClient.getPrimaryNodeAddress(anyString()))
             .thenReturn(InetSocketAddress.createUnresolved("127.0.0.1", 11211));
   }
@@ -36,7 +36,7 @@ public class HHExceptionSwallowerMemcachedClientTest {
   }
 
   @Test
-  public void getShouldSwallowException() throws Exception {
+  public void getShouldSwallowException() {
     when(hhSpyClient.get(REGION, KEY)).thenThrow(RuntimeException.class);
     assertNull(hhExceptionSwallowerMemcachedClient.get(REGION, KEY));
 
@@ -44,7 +44,7 @@ public class HHExceptionSwallowerMemcachedClientTest {
   }
 
   @Test
-  public void getSomeShouldSwallowException() throws Exception {
+  public void getSomeShouldSwallowException() {
     String[] keys = {KEY};
     when(hhSpyClient.getSome(REGION, keys)).thenThrow(RuntimeException.class);
 
@@ -75,7 +75,7 @@ public class HHExceptionSwallowerMemcachedClientTest {
   }
 
   @Test
-  public void getsShouldSwallowException() throws Exception {
+  public void getsShouldSwallowException() {
     when(hhSpyClient.gets(REGION, KEY)).thenThrow(RuntimeException.class);
 
     CASPair casPair = hhExceptionSwallowerMemcachedClient.gets(REGION, KEY);
@@ -110,7 +110,7 @@ public class HHExceptionSwallowerMemcachedClientTest {
   }
 
   @Test
-  public void incrementShouldSwallowException() throws Exception {
+  public void incrementShouldSwallowException() {
     int by = 1;
     int defaultValue = 1;
     when(hhSpyClient.increment(REGION, KEY, by, defaultValue)).thenThrow(RuntimeException.class);
