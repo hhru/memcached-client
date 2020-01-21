@@ -35,16 +35,17 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private final Histograms histograms;
   private final Counters errorCounters;
 
-  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, String serviceName, StatsDSender statsDSender, int metricsSendIntervalSec) {
+  HHMonitoringMemcachedClient(HHMemcachedClient hhMemcachedClient, String serviceName, StatsDSender statsDSender, int metricsSendIntervalSec,
+                              int maxNumOfHitMissCounters, int maxTimeHistogramSize, int maxNumOfTimeHistograms, int maxNumOfErrorCounters) {
     this.hhMemcachedClient = hhMemcachedClient;
 
-    hitMissCounters = new Counters(500);
-    histograms = new Histograms(1000, 20);
-    errorCounters = new Counters(500);
+    hitMissCounters = new Counters(maxNumOfHitMissCounters);
+    histograms = new Histograms(maxTimeHistogramSize, maxNumOfTimeHistograms);
+    errorCounters = new Counters(maxNumOfErrorCounters);
 
     statsDSender.sendPeriodically(() -> {
       statsDSender.sendCounters(getMetricNameWithServiceName(serviceName, "memcached.hitMiss"), hitMissCounters);
-      statsDSender.sendHistograms(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, 95, 99, 100);
+      statsDSender.sendHistograms(getMetricNameWithServiceName(serviceName, "memcached.time"), histograms, StatsDSender.DEFAULT_PERCENTILES);
       statsDSender.sendCounters(getMetricNameWithServiceName(serviceName, "memcached.errors"), errorCounters);
     }, metricsSendIntervalSec);
   }

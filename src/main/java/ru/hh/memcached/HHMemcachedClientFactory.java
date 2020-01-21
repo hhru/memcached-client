@@ -22,12 +22,24 @@ import static java.util.Optional.ofNullable;
 
 public class HHMemcachedClientFactory {
   private static final int DEFAULT_METRICS_SEND_INTERVAL_SEC = 60;
+  private static final int MAX_NUM_OF_HIT_MISS_COUNTERS = 500;
+  private static final int MAX_TIME_HISTOGRAM_SIZE = 1000;
+  private static final int MAX_NUM_OF_TIME_HISTOGRAMS = 20;
+  private static final int MAX_NUM_OF_ERROR_COUNTERS = 500;
 
   private HHMemcachedClientFactory() {}
 
   public static HHMemcachedClient create(Properties properties, String serviceName, StatsDSender statsDSender) throws IOException {
     int metricsSendIntervalSec = ofNullable(properties.getProperty("metricsSendIntervalSec")).map(Integer::parseInt)
       .orElse(DEFAULT_METRICS_SEND_INTERVAL_SEC);
+    int maxNumOfHitMissCounters = ofNullable(properties.getProperty("maxNumOfHitMissCounters")).map(Integer::parseInt)
+      .orElse(MAX_NUM_OF_HIT_MISS_COUNTERS);
+    int maxTimeHistogramSize = ofNullable(properties.getProperty("maxTimeHistogramSize")).map(Integer::parseInt)
+      .orElse(MAX_TIME_HISTOGRAM_SIZE);
+    int maxNumOfTimeHistograms = ofNullable(properties.getProperty("maxNumOfTimeHistograms")).map(Integer::parseInt)
+      .orElse(MAX_NUM_OF_TIME_HISTOGRAMS);
+    int maxNumOfErrorCounters = ofNullable(properties.getProperty("maxNumOfErrorCounters")).map(Integer::parseInt)
+      .orElse(MAX_NUM_OF_ERROR_COUNTERS);
 
     int opQueueCapacity = parseInt(properties.getProperty("opQueueCapacity"));
     int writeQueueCapacity = parseInt(properties.getProperty("writeOpQueueCapacity"));
@@ -67,7 +79,11 @@ public class HHMemcachedClientFactory {
 
     HHMemcachedClient memcachedClient = createHHSpyMemcachedClient(connectionFactory, nodes, numOfInstances);
     if (parseBoolean(properties.getProperty("sendStats"))) {
-      memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, serviceName, statsDSender, metricsSendIntervalSec);
+      memcachedClient = new HHMonitoringMemcachedClient(memcachedClient, serviceName, statsDSender,
+                                                        metricsSendIntervalSec,
+                                                        maxNumOfHitMissCounters,
+                                                        maxTimeHistogramSize, maxNumOfTimeHistograms,
+                                                        maxNumOfErrorCounters);
     }
 
     return new HHExceptionSwallowerMemcachedClient(memcachedClient);
