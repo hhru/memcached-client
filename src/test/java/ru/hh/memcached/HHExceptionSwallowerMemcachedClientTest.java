@@ -118,4 +118,15 @@ public class HHExceptionSwallowerMemcachedClientTest {
     assertEquals(-1L, hhExceptionSwallowerMemcachedClient.increment(REGION, KEY, by, defaultValue));
     verify(hhSpyClient).increment(REGION, KEY, by, defaultValue);
   }
+
+  @Test
+  public void incrementWithTimeToLiveShouldSwallowException() {
+    int by = 1;
+    int defaultValue = 1;
+    int ttl = 100;
+    when(hhSpyClient.increment(REGION, KEY, by, defaultValue, ttl)).thenThrow(RuntimeException.class);
+
+    assertEquals(-1L, hhExceptionSwallowerMemcachedClient.increment(REGION, KEY, by, defaultValue, ttl));
+    verify(hhSpyClient).increment(REGION, KEY, by, defaultValue, ttl);
+  }
 }

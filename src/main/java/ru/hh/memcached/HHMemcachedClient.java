@@ -24,5 +24,7 @@ public interface HHMemcachedClient {
 
   long increment(String region, String key, int by, int def);
 
+  long increment(String region, String key, int by, int def, int ttl);
+
   InetSocketAddress getPrimaryNodeAddress(String key);
 }

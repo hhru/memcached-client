@@ -123,6 +123,17 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public long increment(String region, String key, int by, int def, int ttl) {
+    try {
+      return hhMemcachedClient.increment(region, key, by, def, ttl);
+    } catch (RuntimeException e) {
+      logger.warn("failed to increment key value, region {}, primary node {}, {}, chain of causes is {}, TTL is {}, returning -1",
+          region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e), ttl);
+      return -1;
+    }
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return hhMemcachedClient.getPrimaryNodeAddress(key);
   }
