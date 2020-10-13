@@ -9,7 +9,7 @@
 
     <groupId>ru.hh.memcached</groupId>
     <artifactId>hh-memcached-client</artifactId>
-    <version>2.1.2-SNAPSHOT</version>
+    <version>2.1.2</version>
 
     <dependencies>
         <dependency>
