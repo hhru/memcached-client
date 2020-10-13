@@ -93,6 +93,12 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public long increment(String region, String key, int by, int def, int ttl) {
+    String keyWithRegion = getKey(region, key);
+    return spyMemcachedClient.incr(keyWithRegion, by, def, ttl);
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return (InetSocketAddress) spyMemcachedClient.getConnection().getLocator().getPrimary(key).getSocketAddress();
   }

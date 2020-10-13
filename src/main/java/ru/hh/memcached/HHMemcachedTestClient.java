@@ -85,6 +85,11 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
   }
 
   @Override
+  public long increment(String region, String key, int by, int def, int ttl) {
+    return increment(region, key, by, def);
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return new InetSocketAddress("127.0.0.1", 11211);
   }

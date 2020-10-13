@@ -21,4 +21,16 @@ public class HHSpyClientIncrementTest {
 
     assertEquals(newValue, hhSpyClient.increment("region", "key", by, defaultValue));
   }
+
+  @Test
+  public void successWithTimeToLive() {
+    String keyWithRegion = HHSpyMemcachedClient.getKey("region", "key");
+    int by = 1;
+    int defaultValue = 1;
+    long newValue = 1L;
+    int ttl = 100;
+    when(spyClientMock.incr(keyWithRegion, by, defaultValue, ttl)).thenReturn(newValue);
+
+    assertEquals(newValue, hhSpyClient.increment("region", "key", by, defaultValue, ttl));
+  }
 }

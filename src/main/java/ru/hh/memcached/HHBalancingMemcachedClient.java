@@ -57,6 +57,11 @@ class HHBalancingMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public long increment(String region, String key, int by, int def, int ttl) {
+    return getClient().increment(region, key, by, def, ttl);
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return getClient().getPrimaryNodeAddress(key);
   }

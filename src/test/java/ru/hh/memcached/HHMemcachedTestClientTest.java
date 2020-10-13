@@ -79,6 +79,22 @@ public class HHMemcachedTestClientTest {
   }
 
   @Test
+  public void incrementWithTtl() {
+    assertEquals(0, hhMemcachedClient.increment("region", "key", 1, 0));
+    assertEquals(0, hhMemcachedClient.get("region", "key"));
+
+    assertEquals(1, hhMemcachedClient.increment("region", "key", 1, 0));
+    assertEquals(1, hhMemcachedClient.get("region", "key"));
+
+    assertEquals(3, hhMemcachedClient.increment("region", "key", 2, 0));
+    assertEquals(3, hhMemcachedClient.get("region", "key"));
+
+    hhMemcachedClient.set("region", "key", 300, "val");
+    assertEquals(-1, hhMemcachedClient.increment("region", "key", 1, 0));
+    assertNull(hhMemcachedClient.get("region", "key"));
+  }
+
+  @Test
   public void asyncCASAndGets() throws ExecutionException, InterruptedException {
     CompletableFuture<CASResponse> casFuture = hhMemcachedClient.asyncCas("region", "key", 666L, 300, "val1");
     assertEquals(CASResponse.NOT_FOUND, casFuture.get());

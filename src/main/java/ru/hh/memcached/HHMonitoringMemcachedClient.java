@@ -107,6 +107,16 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
     return object;
   }
 
+  @Override
+  public long increment(String region, String key, int by, int def, int ttl) {
+    long time = System.currentTimeMillis();
+
+    long object = callWithExceptionStats(() -> hhMemcachedClient.increment(region, key, by, def, ttl), region, INCREMENT_COMMAND_TAG, key);
+
+    sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
+    return object;
+  }
+
   private <T> T callSyncWithStats(Supplier<T> method, String region, String key, Tag commandTag) {
     long time = System.currentTimeMillis();
     T object = callWithExceptionStats(method, region, commandTag, key);
