@@ -29,6 +29,7 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
   private static final Tag ADD_COMMAND_TAG = new Tag("command", "add");
   private static final Tag ASYNC_CAS_COMMAND_TAG = new Tag("command", "asyncCas");
   private static final Tag INCREMENT_COMMAND_TAG = new Tag("command", "increment");
+  private static final Tag TOUCH_COMMAND_TAG = new Tag("command", "touch");
 
   private final HHMemcachedClient hhMemcachedClient;
   private final Counters hitMissCounters;
@@ -115,6 +116,11 @@ class HHMonitoringMemcachedClient implements HHMemcachedClient {
 
     sendExecutionTimeStats(region, key, time, System.currentTimeMillis());
     return object;
+  }
+
+  @Override
+  public CompletableFuture<Boolean> touch(String region, String key, int ttl) {
+    return callAsyncWithStats(() -> hhMemcachedClient.touch(region, key, ttl), region, key, TOUCH_COMMAND_TAG);
   }
 
   private <T> T callSyncWithStats(Supplier<T> method, String region, String key, Tag commandTag) {

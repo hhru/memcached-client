@@ -99,6 +99,12 @@ class HHSpyMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public CompletableFuture<Boolean> touch(String region, String key, int ttl) {
+    String keyWithRegion = getKey(region, key);
+    return new OperationToCompletableFutureAdapter<>(spyMemcachedClient.touch(keyWithRegion, ttl));
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return (InetSocketAddress) spyMemcachedClient.getConnection().getLocator().getPrimary(key).getSocketAddress();
   }

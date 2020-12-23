@@ -62,6 +62,11 @@ class HHBalancingMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public CompletableFuture<Boolean> touch(String region, String key, int ttl) {
+    return getClient().touch(region, key, ttl);
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return getClient().getPrimaryNodeAddress(key);
   }

@@ -134,6 +134,19 @@ class HHExceptionSwallowerMemcachedClient implements HHMemcachedClient {
   }
 
   @Override
+  public CompletableFuture<Boolean> touch(String region, String key, int ttl) {
+    CompletableFuture<Boolean> origFuture;
+    try {
+      origFuture = hhMemcachedClient.touch(region, key, ttl);
+    } catch (RuntimeException e) {
+      logger.warn("failed to get async touch future, region {}, primary node {}, {}, chain of causes is {}, returning error future",
+        region, getPrimaryNodeString(region, key), e.toString(), getChainOfCauses(e));
+      return CompletableFuture.completedFuture(false);
+    }
+    return getFutureWithoutException(origFuture, null, region, key, "touch");
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return hhMemcachedClient.getPrimaryNodeAddress(key);
   }
