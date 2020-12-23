@@ -90,6 +90,11 @@ public class HHMemcachedTestClient implements HHMemcachedClient {
   }
 
   @Override
+  public CompletableFuture<Boolean> touch(String region, String key, int ttl) {
+    return CompletableFuture.completedFuture(true);
+  }
+
+  @Override
   public InetSocketAddress getPrimaryNodeAddress(String key) {
     return new InetSocketAddress("127.0.0.1", 11211);
   }
